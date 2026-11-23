@@ -1,0 +1,171 @@
+# Compila la app ADIPACK Avisos (MQTT) en GitHub Actions. Usa la MISMA llave de firma que el agente.
+#  - Siempre: APK debug (sólo para pruebas) + informe de lint.
+#  - Si existen los Secrets de la llave de firma: APK release firmado (el que se sube al MDM).
+#  - Al crear un tag "avisos-v*" (ej. avisos-v1.0.3): publica el APK release en "Releases".
+name: App Avisos Android
+
+on:
+  push:
+    branches: [main, master]
+    paths: ["avisos-android/**", ".github/workflows/avisos-android.yml"]
+    tags: ["avisos-v*"]
+  pull_request:
+    paths: ["avisos-android/**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # necesario sólo para publicar el APK en Releases
+
+concurrency:
+  group: avisos-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: avisos-android
+    env:
+      # Cada ejecución sube el versionCode: Android sólo acepta actualizaciones con código mayor.
+      AVISOS_VERSION_CODE: ${{ github.run_number }}
+      AVISOS_VERSION_NAME: 1.0.${{ github.run_number }}
+      HAS_KEYSTORE: ${{ secrets.MDM_KEYSTORE_BASE64 != '' }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Validar Gradle Wrapper (seguridad)
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Se indican los paquetes a propósito: el valor por defecto de esta acción pide «tools», que
+      # Google ya no publica, y el paso falla con «Failed to find package 'tools'».
+      - name: Android SDK (plataforma 35 y build-tools 35.0.0)
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+          log-accepted-android-sdk-licenses: false
+
+      - name: Gradle (con caché)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Aviso si faltan los Secrets de firma
+        if: env.HAS_KEYSTORE != 'true'
+        run: >-
+          echo "::warning title=Solo se generó el APK de PRUEBAS (debug)::Faltan los Secrets de firma.
+          En tu PC ejecuta CREAR_LLAVE_FIRMA.bat y crea en GitHub (Settings > Secrets and variables > Actions)
+          los 4 Secrets que indica SECRETS_PARA_GITHUB.txt. Luego vuelve a ejecutar este workflow."
+
+      - name: Restaurar y comprobar la llave de firma
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          MDM_KEYSTORE_BASE64: ${{ secrets.MDM_KEYSTORE_BASE64 }}
+          MDM_KEYSTORE_PASS: ${{ secrets.MDM_KEYSTORE_PASS }}
+          MDM_KEY_ALIAS: ${{ secrets.MDM_KEY_ALIAS }}
+          MDM_KEY_PASS: ${{ secrets.MDM_KEY_PASS }}
+        run: |
+          f="$RUNNER_TEMP/adipack-mdm.jks"
+          if ! printf '%s' "$MDM_KEYSTORE_BASE64" | tr -d ' \r\n' | base64 --decode > "$f" 2>/dev/null || [ ! -s "$f" ]; then
+            echo "::error title=Secret MDM_KEYSTORE_BASE64 inválido::No es Base64 válido. Pega TODO el contenido de 1_MDM_KEYSTORE_BASE64.txt (lo crea CREAR_LLAVE_FIRMA.bat)."
+            exit 1
+          fi
+          if [ -z "$MDM_KEYSTORE_PASS" ] || [ -z "$MDM_KEY_ALIAS" ] || [ -z "$MDM_KEY_PASS" ]; then
+            echo "::error title=Faltan Secrets::Además de MDM_KEYSTORE_BASE64 hay que crear MDM_KEYSTORE_PASS, MDM_KEY_ALIAS y MDM_KEY_PASS."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$f" -storepass "$MDM_KEYSTORE_PASS" -alias "$MDM_KEY_ALIAS" > /dev/null 2>&1; then
+            echo "::error title=La llave no abre::MDM_KEYSTORE_PASS o MDM_KEY_ALIAS no corresponden a la llave de MDM_KEYSTORE_BASE64. Cópialos de nuevo de SECRETS_PARA_GITHUB.txt."
+            exit 1
+          fi
+          if [ "$MDM_KEY_PASS" != "$MDM_KEYSTORE_PASS" ]; then
+            echo "::warning title=Contraseñas distintas::MDM_KEY_PASS es distinta de MDM_KEYSTORE_PASS. Con la llave de CREAR_LLAVE_FIRMA.bat son iguales; si la firma falla, copia la misma en los dos Secrets."
+          fi
+          echo "MDM_KEYSTORE=$f" >> "$GITHUB_ENV"
+          echo "Llave de firma correcta (alias $MDM_KEY_ALIAS)."
+
+      - name: Compilar APK debug y lint
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug lintDebug
+
+      - name: Compilar APK release firmado
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          MDM_KEYSTORE_PASS: ${{ secrets.MDM_KEYSTORE_PASS }}
+          MDM_KEY_ALIAS: ${{ secrets.MDM_KEY_ALIAS }}
+          MDM_KEY_PASS: ${{ secrets.MDM_KEY_PASS }}
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Verificar firma y preparar archivos
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/adipack-avisos-${AVISOS_VERSION_NAME}-debug.apk"
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            if [ ! -f app/build/outputs/apk/release/app-release.apk ]; then
+              echo "::error title=No salió el APK firmado::Gradle no generó app-release.apk. Revisa el paso «Compilar APK release firmado»."
+              exit 1
+            fi
+            cp app/build/outputs/apk/release/app-release.apk "dist/adipack-avisos-${AVISOS_VERSION_NAME}.apk"
+          fi
+          for f in dist/*.apk; do
+            echo "::group::$f"
+            "$BT/apksigner" verify --print-certs "$f"
+            "$BT/aapt2" dump badging "$f" | grep -E "^package:"
+            echo "::endgroup::"
+          done
+          ( cd dist && sha256sum *.apk | tee SHA256SUMS.txt )
+          {
+            echo "### ADIPACK Avisos ${AVISOS_VERSION_NAME} (versionCode ${AVISOS_VERSION_CODE})"
+            if [ "$HAS_KEYSTORE" = "true" ]; then
+              echo "✅ **APK firmado listo**: descarga el artefacto **APK-FIRMADO-…** (abajo, en *Artifacts*). Súbelo al MDM en Aplicaciones y agrégalo a la política de las tablets."
+              echo ""
+              echo "Certificado de firma:"
+              echo '```'; "$BT/apksigner" verify --print-certs "dist/adipack-avisos-${AVISOS_VERSION_NAME}.apk" | grep -E "SHA-256 digest|DN"; echo '```'
+            else
+              echo "> ⚠️ Faltan los Secrets de firma: sólo se generó el APK **debug** (pruebas). Ejecuta CREAR_LLAVE_FIRMA.bat en tu PC y crea los 4 Secrets."
+            fi
+            echo '```'; cat dist/SHA256SUMS.txt; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar APK FIRMADO (el que se sube al MDM)
+        if: env.HAS_KEYSTORE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: APK-FIRMADO-avisos-${{ env.AVISOS_VERSION_NAME }}
+          path: |
+            avisos-android/dist/adipack-avisos-${{ env.AVISOS_VERSION_NAME }}.apk
+            avisos-android/dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Guardar APK debug (sólo pruebas)
+        uses: actions/upload-artifact@v4
+        with:
+          name: solo-pruebas-debug-avisos-${{ env.AVISOS_VERSION_NAME }}
+          path: avisos-android/dist/*-debug.apk
+          retention-days: 14
+
+      - name: Guardar informe de lint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-avisos-${{ env.AVISOS_VERSION_NAME }}
+          path: avisos-android/app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+
+      - name: Publicar en Releases (tags avisos-v*)
+        if: startsWith(github.ref, 'refs/tags/avisos-v') && env.HAS_KEYSTORE == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            avisos-android/dist/adipack-avisos-${{ env.AVISOS_VERSION_NAME }}.apk
+            avisos-android/dist/SHA256SUMS.txt
