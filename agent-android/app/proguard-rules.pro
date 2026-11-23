@@ -1,0 +1,4 @@
+-keep class com.adipack.mdm.agent.AdminReceiver { *; }
+-keep class com.adipack.mdm.agent.** extends android.app.Activity
+-keep class com.adipack.mdm.agent.** extends android.app.Service
+-keep class com.adipack.mdm.agent.** extends android.content.BroadcastReceiver

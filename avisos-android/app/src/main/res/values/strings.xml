@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ADIPACK Avisos</string>
+    <string name="r_host">Servidor MQTT (IP del MDM)</string>
+    <string name="r_port">Puerto MQTT</string>
+    <string name="r_user">Usuario MQTT de la tablet</string>
+    <string name="r_pass">Clave MQTT de la tablet</string>
+    <string name="r_id">Número de la tablet en el MDM</string>
+    <string name="r_name">Nombre de la tablet</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Se permite HTTP en claro para el servidor MDM de la LAN de planta.
+     Si publicas el MDM con HTTPS (recomendado), cambia cleartextTrafficPermitted a "false". -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

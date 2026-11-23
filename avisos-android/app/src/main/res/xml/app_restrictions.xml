@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Claves que el agente ADIPACK MDM entrega con setApplicationRestrictions(). -->
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+    <restriction android:key="broker_host" android:title="@string/r_host" android:restrictionType="string" />
+    <restriction android:key="broker_port" android:title="@string/r_port" android:restrictionType="integer" android:defaultValue="1883" />
+    <restriction android:key="usuario" android:title="@string/r_user" android:restrictionType="string" />
+    <restriction android:key="clave" android:title="@string/r_pass" android:restrictionType="string" />
+    <restriction android:key="dispositivo_id" android:title="@string/r_id" android:restrictionType="string" />
+    <restriction android:key="dispositivo_nombre" android:title="@string/r_name" android:restrictionType="string" />
+</restrictions>

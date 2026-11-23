@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Silueta de la bolsa del logo ADIPACK MDM (Android pinta los íconos de notificación en un solo color). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Asas -->
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.7" android:strokeLineCap="round"
+        android:fillColor="#00000000" android:pathData="M9,10V6.5a3,3 0 0,1 6,0V10" />
+    <!-- Cuerpo con los dos ojales -->
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M6.2,7.8h11.6l1.2,13.4H5z M9,10m-1.05,0a1.05,1.05 0 1,0 2.1,0a1.05,1.05 0 1,0 -2.1,0 M15,10m-1.05,0a1.05,1.05 0 1,0 2.1,0a1.05,1.05 0 1,0 -2.1,0" />
+</vector>
