@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Agregar dispositivo{% endblock %}
+{% block heading %}Agregar dispositivo{% endblock %}
+{% block sub %}¿Qué tipo de equipo quieres incorporar al MDM?{% endblock %}
+{% block content %}
+<div class="grid g2" style="max-width:900px">
+  <a class="choice" href="/devices/add/android">
+    <div class="big">{{ icon('tablet') }}</div>
+    <b>Tablet Android</b>
+    <span>Redmi Pad 2 u otra tablet. Se activa escaneando un código QR y queda en modo kiosco con la app Adipack CMMS / MES.</span>
+    <span class="btn" style="align-self:flex-start;margin-top:6px">Empezar {{ icon('arrow') }}</span>
+  </a>
+  <a class="choice" href="/devices/add/pc">
+    <div class="big">{{ icon('pc') }}</div>
+    <b>PC Windows o Linux</b>
+    <span>Computadoras de planta u oficina. Se instala un pequeño agente y reporta inventario; puede abrir el CMMS en kiosco.</span>
+    <span class="btn sec" style="align-self:flex-start;margin-top:6px">Empezar {{ icon('arrow') }}</span>
+  </a>
+</div>
+{% endblock %}

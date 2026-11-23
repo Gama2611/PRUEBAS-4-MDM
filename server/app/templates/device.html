@@ -1,0 +1,145 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}{{ d.name }}{% endblock %}
+{% block heading %}{{ d.name }}{% endblock %}
+{% block sub %}{{ PLATFORM_NAMES.get(d.platform, d.platform) }} · {{ d.manufacturer }} {{ d.model }}{% if d.location %} · {{ d.location }}{% endif %}{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/">{{ icon('back') }} Equipos</a>{% endblock %}
+{% block content %}
+{% set s = d.status or {} %}
+{% set android = d.platform == 'android' %}
+
+<div class="grid g4">
+  <div class="card kpi"><div class="ic {{ 'ok' if online(d) }}">{{ icon('wifi') }}</div><div>
+    <div class="n" style="font-size:17px">{{ 'En línea' if online(d) else 'Desconectado' }}</div><div class="l">Último contacto {{ d.last_seen|hace }}</div></div></div>
+  <div class="card kpi"><div class="ic info">{{ icon('lock') }}</div><div>
+    <div class="n" style="font-size:17px">{% if s.kiosk_active %}Kiosco activo{% elif s.kiosk_suspended %}Kiosco suspendido{% else %}Sin kiosco{% endif %}</div>
+    <div class="l">{{ (d.policy.settings or {}).get('kiosk_package', '') if d.policy else '' }}</div></div></div>
+  <div class="card kpi"><div class="ic {{ 'warn' if s.battery is defined and s.battery < 20 else 'ok' }}">{{ icon('power') }}</div><div>
+    <div class="n" style="font-size:17px">{% if s.battery is defined %}{{ s.battery }}%{% if s.charging %} · cargando{% endif %}{% else %}—{% endif %}</div><div class="l">Batería</div></div></div>
+  <div class="card kpi"><div class="ic {{ 'warn' if d.policy and d.applied_policy_version != d.policy.version }}">{{ icon('shield') }}</div><div>
+    <div class="n" style="font-size:17px">{% if not d.policy %}Sin política{% elif d.applied_policy_version != d.policy.version %}Aplicando cambios{% else %}Al día{% endif %}</div>
+    <div class="l">{{ d.policy.name if d.policy else 'Asígnale una' }}</div></div></div>
+</div>
+
+{% if s.last_error %}<div class="alert warn">{{ icon('alert') }}<div><b>Último aviso del equipo:</b> {{ s.last_error }}</div></div>{% endif %}
+
+<div class="card">
+  <div class="card-h"><div><h2>Acciones rápidas</h2><div class="desc">Se ejecutan en la próxima sincronización del equipo (normalmente menos de 1 minuto).</div></div></div>
+  <div class="actions">
+    {% for t, ic, lab in [('sync','refresh','Sincronizar ahora'), ('lock','lock','Bloquear pantalla'), ('reboot','power','Reiniciar')] %}
+    <form method="post" action="/devices/{{ d.id }}/command" class="inline" {% if t == 'reboot' %}data-confirm="¿Reiniciar {{ d.name }}?"{% endif %}>
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="type" value="{{ t }}">
+      <button class="btn sec">{{ icon(ic) }} {{ lab }}</button></form>
+    {% endfor %}
+    <form method="post" action="/devices/{{ d.id }}/command" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="type" value="exit_kiosk"><input type="hidden" name="minutes" value="15">
+      <button class="btn sec">{{ icon('unlock') }} Salir del kiosco 15 min</button></form>
+  </div>
+  <form method="post" action="/devices/{{ d.id }}/command" class="row mt">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="type" value="message">
+    <div class="grow"><label class="f">Enviar un mensaje a la pantalla</label><input name="message" required maxlength="500" placeholder="Ej.: Favor reportar la parada de la línea 3"></div>
+    <button class="btn">{{ icon('msg') }} Enviar mensaje</button>
+  </form>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h2>Ficha del equipo</h2>
+    <dl class="kv mt">
+      <dt>Tipo</dt><dd>{{ PLATFORM_NAMES.get(d.platform, d.platform) }}</dd>
+      <dt>Modelo</dt><dd>{{ d.manufacturer }} {{ d.model }}</dd>
+      <dt>Sistema</dt><dd>{{ d.os_version or '—' }}</dd>
+      <dt>Número de serie</dt><dd>{{ d.serial or '—' }}</dd>
+      <dt>Dirección IP</dt><dd>{{ s.ip or s.remote_ip or '—' }}</dd>
+      {% if android %}<dt>Device Owner</dt><dd>{% if s.device_owner %}<span class="chip ok">Sí</span>{% elif s.device_owner is defined %}<span class="chip err">No</span>{% else %}—{% endif %}</dd>{% endif %}
+      {% if s.storage_free_mb is defined %}<dt>Almacenamiento libre</dt><dd>{{ (s.storage_free_mb / 1024)|round(1) }} GB de {{ (s.storage_total_mb / 1024)|round(1) }} GB</dd>{% endif %}
+      {% if s.disk_free_gb is defined %}<dt>Disco libre</dt><dd>{{ s.disk_free_gb }} GB de {{ s.disk_total_gb }} GB</dd>{% endif %}
+      {% if s.hostname %}<dt>Nombre de red</dt><dd>{{ s.hostname }}</dd>{% endif %}
+      <dt>Versión del agente</dt><dd>{{ d.agent_version or '—' }}</dd>
+      <dt>Activado</dt><dd>{{ d.enrolled_at|fecha }}</dd>
+      <dt>Último contacto</dt><dd>{{ d.last_seen|fecha('%d/%m/%Y %H:%M:%S') }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>Configuración</h2>
+    <form method="post" action="/devices/{{ d.id }}/update" class="mt">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field"><label class="f">Nombre</label><input name="name" value="{{ d.name }}" required maxlength="100"></div>
+      <div class="field"><label class="f">Ubicación</label><input name="location" value="{{ d.location }}" maxlength="100" placeholder="Ej.: Extrusión — Línea 3"></div>
+      <div class="field"><label class="f">Política</label>
+        <select name="policy_id"><option value="">— Sin política —</option>
+        {% for p in policies %}<option value="{{ p.id }}" {{ 'selected' if p.id == d.policy_id }}>{{ p.name }}</option>{% endfor %}</select></div>
+      <button class="btn">{{ icon('check') }} Guardar cambios</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-h"><div><h2>Más acciones</h2><div class="desc">Las marcadas con ⚠ piden confirmar escribiendo el nombre del equipo.</div></div></div>
+  <form method="post" action="/devices/{{ d.id }}/command" id="adv">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row">
+      <div><label class="f">Acción</label>
+        <select name="type" id="advtype">
+        {% for k, c in COMMANDS.items() if d.platform in c.platforms and k not in ('sync','lock','message') %}
+          <option value="{{ k }}" data-danger="{{ 1 if c.danger else 0 }}">{{ c.label }}{{ ' ⚠' if c.danger }}</option>{% endfor %}
+        </select></div>
+      <div class="grow adv adv-exit_kiosk"><label class="f">Minutos fuera del kiosco</label><input type="number" name="minutes" value="10" min="1" max="240"></div>
+      {% if android %}
+      <div class="grow adv adv-install_app"><label class="f">Aplicación</label><select name="app_id">
+        {% for a in apps %}<option value="{{ a.id }}">{{ a.label }} v{{ a.version_name }}</option>{% else %}<option value="">No hay APKs subidos</option>{% endfor %}</select></div>
+      <div class="grow adv adv-uninstall_app adv-clear_app_data"><label class="f">Paquete</label><input name="package" placeholder="com.adipack.cmmsconnect" list="instaladas">
+        <datalist id="instaladas">{% for a in (s.apps or []) %}<option value="{{ a.package }}">{% endfor %}</datalist></div>
+      {% endif %}
+      <div class="grow adv-confirm"><label class="f">Confirmación: escribe <b>{{ d.name }}</b></label><input name="confirm" autocomplete="off"></div>
+      <button class="btn">{{ icon('arrow') }} Ejecutar</button>
+    </div>
+    {% if not android %}<div class="field mt adv adv-run_script"><label class="f">Script ({{ 'PowerShell' if d.platform == 'windows' else 'Bash' }})</label><textarea name="script"></textarea></div>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <h2>Historial de acciones</h2>
+  <div class="table-wrap mt"><table>
+    <thead><tr><th>Acción</th><th>Estado</th><th>Resultado</th><th>Por</th><th>Fecha</th><th></th></tr></thead><tbody>
+    {% for c in commands %}
+    <tr><td><b>{{ COMMANDS[c.type].label if c.type in COMMANDS else c.type }}</b>
+        {% if c.params.text %}<br><span class="small muted">«{{ c.params.text[:80] }}»</span>{% elif c.params.package %}<br><span class="small muted mono">{{ c.params.package }}</span>{% endif %}</td>
+      <td><span class="chip st-{{ c.state }}">{{ {'pending':'En cola','sent':'Enviado','done':'Hecho','failed':'Falló','cancelled':'Cancelado'}.get(c.state, c.state) }}</span></td>
+      <td class="small" style="max-width:360px">{{ c.result[:300] }}</td><td>{{ c.created_by }}</td>
+      <td style="white-space:nowrap">{{ c.created_at|fecha('%d/%m %H:%M:%S') }}</td>
+      <td>{% if c.state == 'pending' %}<form method="post" action="/commands/{{ c.id }}/cancel" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost sm">Cancelar</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty">Sin acciones todavía.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+
+{% if s.apps %}
+<details class="card"><summary>Aplicaciones instaladas ({{ s.apps|length }})</summary>
+  <div class="table-wrap mt"><table><thead><tr><th>Paquete</th><th>Versión</th></tr></thead><tbody>
+  {% for a in s.apps|sort(attribute='package') %}<tr><td class="mono">{{ a.package }}</td><td>{{ a.version_name }} {% if a.version_code %}({{ a.version_code }}){% endif %}</td></tr>{% endfor %}
+  </tbody></table></div></details>
+{% endif %}
+<details class="card"><summary>Datos técnicos reportados</summary><pre class="mt">{{ json.dumps(s, indent=2, ensure_ascii=False, default=str)[:20000] }}</pre></details>
+
+<div class="card" style="border-color:#f3c2c2">
+  <h2 style="color:var(--err)">Retirar equipo del MDM</h2>
+  <p class="desc muted">Anula el acceso del equipo. Úsalo para equipos perdidos o dados de baja. Para borrar la tablet usa «Borrado de fábrica» en Más acciones.</p>
+  <form method="post" action="/devices/{{ d.id }}/retire" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grow"><label class="f">Escribe <b>{{ d.name }}</b> para confirmar</label><input name="confirm" autocomplete="off" required></div>
+    <button class="btn danger">{{ icon('trash') }} Retirar equipo</button>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var sel = document.getElementById('advtype'); if (!sel) return;
+  function upd(){
+    var t = sel.value, danger = sel.selectedOptions[0].dataset.danger === '1';
+    document.querySelectorAll('#adv .adv').forEach(function(el){ el.style.display = el.classList.contains('adv-' + t) ? '' : 'none'; });
+    document.querySelector('#adv .adv-confirm').style.display = danger ? '' : 'none';
+  }
+  sel.addEventListener('change', upd); upd();
+})();
+</script>
+{% endblock %}

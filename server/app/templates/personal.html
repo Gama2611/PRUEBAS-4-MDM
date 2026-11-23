@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Personal{% endblock %}
+{% block heading %}Personal{% endblock %}
+{% block sub %}Operadores y trabajadores que reciben equipos{% endblock %}
+{% block content %}
+<div class="card" id="form">
+  <h2>{{ 'Editar: ' ~ w.full_name if w else 'Agregar persona' }}</h2>
+  <form method="post" action="/personal/save" class="mt">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ w.id if w else '' }}">
+    <div class="row row-top">
+      <div class="grow"><label class="f">Nombre y apellido</label><input name="full_name" value="{{ w.full_name if w else '' }}" required minlength="3" maxlength="120"></div>
+      <div><label class="f">Cédula</label><input name="id_number" value="{{ w.id_number if w else '' }}" required maxlength="20" placeholder="V-12345678" style="width:150px"></div>
+      <div class="grow"><label class="f">Cargo</label><input name="position" value="{{ w.position if w else '' }}" maxlength="80" placeholder="Operador de extrusión"></div>
+      <div><label class="f">Turno habitual</label><select name="shift"><option value="">—</option>{% for t in TURNOS %}<option {{ 'selected' if w and w.shift == t }}>{{ t }}</option>{% endfor %}</select></div>
+      <div><label class="f">Área</label><select name="area"><option value="">—</option>{% for a in AREAS_INV %}<option {{ 'selected' if w and w.area == a }}>{{ a }}</option>{% endfor %}</select></div>
+    </div>
+    <p class="mt mb0"><button class="btn">{{ icon('check') }} Guardar</button>{% if w %} <a class="btn ghost" href="/personal">Cancelar</a>{% endif %}</p>
+  </form>
+</div>
+<div class="card">
+  <div class="card-h"><div><h2>Personas registradas ({{ workers|length }})</h2></div>
+    <form class="right row" method="get"><input name="q" value="{{ q }}" placeholder="Buscar nombre, cédula o cargo" style="width:260px"><button class="btn sec" data-keep="1">{{ icon('search') }}</button></form></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Turno</th><th>Área</th><th>Estado</th><th></th></tr></thead><tbody>
+    {% for p in workers %}
+    <tr {% if not p.active %}style="opacity:.55"{% endif %}><td><b>{{ p.full_name }}</b></td><td class="mono">{{ p.id_number }}</td><td>{{ p.position or '—' }}</td><td>{{ p.shift or '—' }}</td><td>{{ p.area or '—' }}</td>
+      <td>{% if p.active %}<span class="chip ok">Activo</span>{% else %}<span class="chip off">Inactivo</span>{% endif %}</td>
+      <td class="right" style="white-space:nowrap"><a class="btn sec sm" href="/personal?edit={{ p.id }}#form">Editar</a>
+        <a class="btn ghost sm" href="/actas/nueva?worker={{ p.id }}">{{ icon('file') }} Acta</a>
+        <form method="post" action="/personal/{{ p.id }}/toggle" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost sm">{{ 'Desactivar' if p.active else 'Activar' }}</button></form></td></tr>
+    {% else %}<tr><td colspan="7" class="empty">{{ icon('users') }}<br>Sin personas registradas. También se agregan solas al registrar una entrega con nombre y cédula nuevos.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

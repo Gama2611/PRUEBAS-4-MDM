@@ -1,0 +1,66 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Nueva acta de entrega{% endblock %}
+{% block heading %}Nueva acta de entrega{% endblock %}
+{% block sub %}Elige el equipo y la persona que lo recibe; el acta se genera lista para imprimir y firmar{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/actas">{{ icon('back') }} Actas</a>{% endblock %}
+{% block content %}
+{% if not assets or not workers %}
+<div class="alert warn">{{ icon('alert') }}<div>
+  {% if not assets %}No hay equipos en el inventario: <a href="/inventario/nuevo">agrega uno</a>. {% endif %}
+  {% if not workers %}No hay personal registrado: <a href="/personal">agrega a la persona</a> que recibirá el equipo.{% endif %}</div></div>
+{% endif %}
+<form method="post" action="/actas/save">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="card">
+  <h2>1. Trabajador responsable (quien recibe)</h2>
+  <div class="fields mt">
+    <div class="field"><label class="f">Trabajador</label>
+      <select name="worker_id" id="worker" required><option value="">Elige…</option>
+      {% for w in workers %}<option value="{{ w.id }}" data-pos="{{ w.position }}" data-shift="{{ w.shift }}" data-area="{{ w.area }}" {{ 'selected' if w.id == sel_worker }}>{{ w.full_name }} · {{ w.id_number }}</option>{% endfor %}</select>
+      <div class="help">¿No aparece? <a href="/personal">Agrégalo en Personal</a>.</div></div>
+    <div class="field"><label class="f">Cargo</label><input name="worker_position" id="pos" maxlength="80" placeholder="Se toma de Personal si lo dejas vacío"></div>
+    <div class="field"><label class="f">Turno de trabajo</label><select name="shift" id="shift"><option value="">—</option>{% for t in TURNOS %}<option>{{ t }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="f">Área asignada</label><select name="area" id="area" required><option value="">Elige…</option>{% for x in AREAS_ACTA %}<option>{{ x }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="f">Fecha de entrega</label><input type="date" name="date" value="{{ today }}" required></div>
+  </div>
+</div>
+<div class="card">
+  <h2>2. Equipo entregado</h2>
+  <div class="fields mt">
+    <div class="field"><label class="f">Equipo (código activo)</label>
+      <select name="asset_id" id="asset" required><option value="">Elige…</option>
+      {% for a in assets %}<option value="{{ a.id }}" data-area="{{ a.area }}" {{ 'selected' if a.id == sel_asset }}>{{ a.code }} · {{ a.eff_brand }} {{ a.eff_model }}{% if a.eff_serial %} · {{ a.eff_serial }}{% endif %}{{ ' · S/A' if a.unassigned }}</option>{% endfor %}</select>
+      <div class="help">Marca, modelo, serial y software se toman del inventario.</div></div>
+    <div class="field"><label class="f">Condición física</label><div class="row">{% for c in CONDICIONES %}<label class="check" style="margin:0"><input type="radio" name="condition" value="{{ c }}" {{ 'checked' if c == 'Óptimo' }} required> {{ c }}</label>{% endfor %}</div></div>
+    <div class="field wide"><label class="f">Accesorios incluidos</label><div class="row">{% for x in ACCESORIOS %}<label class="check" style="margin:0"><input type="checkbox" name="accessories" value="{{ x }}"> {{ x }}</label>{% endfor %}</div></div>
+    <div class="field wide"><label class="f">Observaciones</label><input name="notes" maxlength="1000" placeholder="Opcional"></div>
+  </div>
+</div>
+<div class="card">
+  <h2>3. Entregado por ({{ comp.company_name }})</h2>
+  <div class="fields mt">
+    <div class="field"><label class="f">Nombre</label><input name="delivered_by_name" value="{{ comp.handover_by_name }}" maxlength="120"></div>
+    <div class="field"><label class="f">Cédula</label><input name="delivered_by_id_number" value="{{ comp.handover_by_id_number }}" maxlength="20" placeholder="V-12345678"></div>
+    <div class="field wide"><label class="f">Cargo</label><input name="delivered_by_position" value="{{ comp.handover_by_position }}" maxlength="80"></div>
+  </div>
+  <p class="help mb0">Se recuerdan para la próxima acta. Si los dejas vacíos, el acta sale con líneas para escribir a mano.</p>
+</div>
+<button class="btn lg">{{ icon('file') }} Generar acta</button>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var w = document.getElementById('worker'), as = document.getElementById('asset'), area = document.getElementById('area');
+  function fromWorker(){ var o = w.selectedOptions[0]; if (!o || !o.value) return;
+    if (o.dataset.pos && !document.getElementById('pos').value) document.getElementById('pos').value = o.dataset.pos;
+    if (o.dataset.shift) document.getElementById('shift').value = o.dataset.shift;
+    if (!assetArea() && o.dataset.area && [...area.options].some(x => x.value === o.dataset.area)) area.value = o.dataset.area; }
+  // El área del EQUIPO manda; si el equipo está S/A, se sugiere la del trabajador.
+  function assetArea(){ var o = as.selectedOptions[0]; var v = o && o.dataset.area;
+    return v && [...area.options].some(x => x.value === v) ? v : ''; }
+  function fromAsset(){ var v = assetArea(); if (v) area.value = v; else fromWorker(); }
+  w.addEventListener('change', fromWorker); as.addEventListener('change', fromAsset); fromAsset(); fromWorker();
+})();
+</script>
+{% endblock %}

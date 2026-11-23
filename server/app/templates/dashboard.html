@@ -1,0 +1,97 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Inicio{% endblock %}
+{% block heading %}Inicio y equipos{% endblock %}
+{% block sub %}Estado de las tablets y PCs gestionados{% endblock %}
+{% block top_actions %}<a class="btn" href="/devices/add">{{ icon('plus') }} Agregar dispositivo</a>{% endblock %}
+{% block content %}
+
+{% if not setup_done %}
+{% set done = steps|selectattr('done')|list|length %}
+<div class="card" style="border-color:var(--rosa-borde)">
+  <div class="card-h">
+    <div><h2>Configuración inicial · {{ done }} de {{ steps|length }} pasos</h2>
+      <div class="desc">Sigue estos pasos en orden para dejar listas las tablets.</div>
+      <div class="progress" style="width:280px"><b style="width:{{ (done * 100 / steps|length)|round|int }}%"></b></div></div>
+  </div>
+  <div class="steps">
+  {% set ns = namespace(cur=false) %}
+  {% for s in steps %}
+    {% set is_cur = (not s.done) and (not ns.cur) %}{% if is_cur %}{% set ns.cur = true %}{% endif %}
+    <div class="step {{ 'done' if s.done else ('cur' if is_cur) }}">
+      <div class="num">{% if s.done %}{{ icon('check') }}{% else %}{{ loop.index }}{% endif %}</div>
+      <div class="t"><b>{{ s.title }}</b><span>{{ s.text }}</span></div>
+      {% if s.done %}<span class="chip ok">Listo</span>
+      {% else %}<a class="btn {{ '' if is_cur else 'sec' }} sm" href="{{ s.url }}">{{ s.btn }} {{ icon('arrow') }}</a>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid g4">
+  <div class="card kpi"><div class="ic">{{ icon('tablet') }}</div><div><div class="n">{{ stats.total }}</div><div class="l">Equipos registrados</div></div></div>
+  <div class="card kpi"><div class="ic ok">{{ icon('wifi') }}</div><div><div class="n">{{ stats.online }}</div><div class="l">En línea ahora</div></div></div>
+  <div class="card kpi"><div class="ic info">{{ icon('lock') }}</div><div><div class="n">{{ stats.kiosk }}</div><div class="l">En modo kiosco</div></div></div>
+  <div class="card kpi"><div class="ic warn">{{ icon('refresh') }}</div><div><div class="n">{{ stats.outdated }}</div><div class="l">Con cambios pendientes</div></div></div>
+</div>
+
+<div class="card">
+  <div class="card-h">
+    <div><h2>Equipos</h2><div class="desc">Haz clic en un equipo para ver su ficha y enviarle acciones.</div></div>
+  </div>
+  <form class="row" method="get" style="margin-bottom:14px">
+    <div class="grow"><input name="q" value="{{ q }}" placeholder="Buscar por nombre, ubicación, modelo o serial"></div>
+    <div><select name="platform">
+      <option value="">Todos los tipos</option>
+      <option value="android" {{ 'selected' if platform=='android' }}>Tablets Android</option>
+      <option value="pc" {{ 'selected' if platform=='pc' }}>PCs</option></select></div>
+    <div><select name="estado">
+      <option value="">Cualquier estado</option>
+      <option value="online" {{ 'selected' if estado=='online' }}>En línea</option>
+      <option value="offline" {{ 'selected' if estado=='offline' }}>Desconectados</option></select></div>
+    <button class="btn sec" data-keep="1">{{ icon('search') }} Filtrar</button>
+    {% if q or platform or estado %}<a class="btn ghost" href="/">Limpiar</a>{% endif %}
+  </form>
+
+  <form method="post" action="/devices/bulk" id="bulk">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="table-wrap">
+  <table>
+    <thead><tr>
+      <th style="width:34px"><input type="checkbox" aria-label="Seleccionar todos" onclick="document.querySelectorAll('.sel').forEach(c=>c.checked=this.checked)"></th>
+      <th>Equipo</th><th>Ubicación</th><th>Estado</th><th>Batería</th><th>Kiosco</th><th>Política</th><th>Último contacto</th></tr></thead>
+    <tbody>
+    {% for d in devices %}{% set s = d.status or {} %}
+    <tr>
+      <td><input type="checkbox" class="sel" name="device_ids" value="{{ d.id }}" aria-label="Seleccionar {{ d.name }}"></td>
+      <td><a href="/devices/{{ d.id }}" style="display:flex;gap:10px;align-items:center;color:inherit">
+          <span class="kpi" style="padding:0"><span class="ic" style="width:34px;height:34px">{{ icon('tablet' if d.platform == 'android' else 'pc') }}</span></span>
+          <span><b style="color:var(--rosa-osc)">{{ d.name }}</b><br><span class="small muted">{{ d.manufacturer }} {{ d.model }}</span></span></a></td>
+      <td>{{ d.location or '—' }}</td>
+      <td>{% if online(d) %}<span class="chip ok"><span class="dot"></span>En línea</span>{% else %}<span class="chip off"><span class="dot"></span>Desconectado</span>{% endif %}</td>
+      <td>{% if s.battery is defined %}<span class="bat {{ 'low' if s.battery < 20 }}"><i><b style="width:{{ [s.battery, 100]|min * 0.22 }}px"></b></i>{{ s.battery }}%{% if s.charging %} ⚡{% endif %}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if d.platform != 'android' and not s.kiosk_active %}<span class="muted">—</span>{% elif s.kiosk_active %}<span class="chip info">{{ icon('lock') }} Activo</span>{% elif s.kiosk_suspended %}<span class="chip warn">Suspendido</span>{% else %}<span class="chip off">No</span>{% endif %}</td>
+      <td>{% if d.policy %}{{ d.policy.name }}{% if d.applied_policy_version != d.policy.version %}<br><span class="chip warn" style="margin-top:3px">Aplicando cambios</span>{% endif %}{% else %}<span class="chip err">Sin política</span>{% endif %}</td>
+      <td title="{{ d.last_seen|fecha }}">{{ d.last_seen|hace }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">{{ icon('tablet') }}<br>
+      {% if q or platform or estado %}No hay equipos que coincidan con el filtro.
+      {% else %}Todavía no hay equipos.<br><br><a class="btn" href="/devices/add">{{ icon('plus') }} Agregar el primer dispositivo</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if devices %}
+  <div class="row mt">
+    <div><label class="f">Acción para los equipos marcados</label>
+      <select name="type" id="bulktype" onchange="document.getElementById('bulkmsg').style.display=this.value=='message'?'block':'none'">
+        <option value="sync">Sincronizar ahora</option><option value="lock">Bloquear pantalla</option>
+        <option value="reboot">Reiniciar</option><option value="message">Enviar mensaje</option></select></div>
+    <div class="grow" id="bulkmsg" style="display:none"><label class="f">Mensaje</label><input name="message" placeholder="Ej.: Reunión de seguridad a las 2:00 pm"></div>
+    <button class="btn sec">{{ icon('arrow') }} Aplicar</button>
+  </div>
+  {% endif %}
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Auditoría{% endblock %}
+{% block heading %}Auditoría{% endblock %}
+{% block sub %}Últimas 500 acciones registradas (hora local){% endblock %}
+{% block content %}
+<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>
+{% for r in rows %}<tr><td style="white-space:nowrap">{{ r.at|fecha('%d/%m/%Y %H:%M:%S') }}</td><td>{{ r.actor }}</td><td><span class="chip rosa">{{ r.action }}</span></td><td class="small">{{ r.detail }}</td></tr>
+{% else %}<tr><td colspan="4" class="empty">Sin registros.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

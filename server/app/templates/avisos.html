@@ -1,0 +1,110 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Avisos a tablets{% endblock %}
+{% block heading %}Avisos a tablets{% endblock %}
+{% block sub %}Mensajes a la pantalla de las tablets por MQTT, sin Internet{% endblock %}
+{% block content %}
+{# ---------------- estado del servicio ---------------- #}
+{% set online = st.en_linea|length %}
+<div class="grid g4">
+  <div class="card kpi"><div class="ic {{ 'ok' if st.activo else '' }}" {% if not st.activo %}style="background:var(--err-claro);color:var(--err)"{% endif %}>{{ icon('bell') }}</div><div><div class="n">{{ 'Activo' if st.activo else 'Detenido' }}</div><div class="l">Servicio MQTT · puerto {{ st.puerto }}</div></div></div>
+  <div class="card kpi"><div class="ic">{{ icon('tablet') }}</div><div><div class="n">{{ tablets|length }}</div><div class="l">Tablets con la app de avisos</div></div></div>
+  <div class="card kpi"><div class="ic ok">{{ icon('wifi') }}</div><div><div class="n">{{ online }}</div><div class="l">Conectadas ahora</div></div></div>
+  <div class="card kpi"><div class="ic">{{ icon('box') }}</div><div><div class="n">{{ app.version_name if app else '—' }}</div><div class="l">App ADIPACK Avisos</div></div></div>
+</div>
+{% if st.error %}<div class="alert err">{{ icon('alert') }}<div><b>El servicio MQTT no pudo arrancar.</b> {{ st.error }}</div></div>
+{% elif not st.activo %}<div class="alert warn">{{ icon('alert') }}<div><b>El servicio MQTT está apagado</b> (MDM_MQTT_ENABLED=false en .env).</div></div>{% endif %}
+{% if not app %}
+<div class="alert warn">{{ icon('alert') }}<div><b>Paso 1:</b> sube el APK <code>ADIPACK Avisos</code> en <a href="/apps">Aplicaciones</a>.
+  <b>Paso 2:</b> agrégalo en «Apps obligatorias» de la política de las tablets. El MDM la instala y la configura sola (servidor, usuario y clave).</div></div>
+{% elif not policies_with_app %}
+<div class="alert warn">{{ icon('alert') }}<div>La app está subida, pero ninguna política la tiene en «Apps obligatorias». Abre <a href="/policies">Políticas</a>, edita la de las tablets y márcala.</div></div>
+{% elif not tablets %}
+<div class="alert info">{{ icon('info') }}<div>La política <b>{{ policies_with_app|map(attribute='name')|join(', ') }}</b> ya instala la app. Falta activar tablets con esa política (Códigos de activación).</div></div>
+{% endif %}
+
+<div class="grid g2" style="align-items:start">
+{# ---------------- enviar ---------------- #}
+<div class="card">
+  <h2>Enviar aviso</h2>
+  <form method="post" action="/avisos/enviar" class="mt" id="fa">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="f">Para</label>
+    <div class="row" style="gap:14px;flex-wrap:wrap">
+      <label class="check" style="margin:0"><input type="radio" name="destino" value="todas" checked> Todas las tablets</label>
+      <label class="check" style="margin:0"><input type="radio" name="destino" value="area"> Un área</label>
+      <label class="check" style="margin:0"><input type="radio" name="destino" value="tablet"> Una tablet</label>
+    </div>
+    <div class="mt" data-d="area" hidden><select name="area">{% for a in AREAS_AVISO %}<option>{{ a }}</option>{% endfor %}</select>
+      <div class="help">Llega a las tablets enlazadas en el Inventario a un equipo de esa área.</div></div>
+    <div class="mt" data-d="tablet" hidden><select name="tablet">{% for t in tablets %}<option value="{{ t.id }}">{{ t.name }}{% if areas_by_dev.get(t.id) %} · {{ areas_by_dev[t.id] }}{% endif %}{{ ' · conectada' if bus.is_online(t.id) else '' }}</option>{% endfor %}</select></div>
+    <label class="f" style="margin-top:16px">Prioridad</label>
+    <div class="row" style="gap:14px;flex-wrap:wrap">
+      <label class="check" style="margin:0"><input type="radio" name="prioridad" value="normal" checked> Normal</label>
+      <label class="check" style="margin:0"><input type="radio" name="prioridad" value="alta"> Alta</label>
+      <label class="check" style="margin:0"><input type="radio" name="prioridad" value="urgente"> Urgente</label>
+    </div>
+    <div class="help">Todas aparecen en pantalla completa encima de la app. <b>Alta</b> suena más fuerte; <b>Urgente</b> suena y vibra sin parar hasta que alguien toque «Entendido».</div>
+    <label class="f" style="margin-top:16px">Título</label>
+    <input name="titulo" required maxlength="80" placeholder="Ej.: Parada programada de la línea 3">
+    <label class="f" style="margin-top:16px">Mensaje</label>
+    <textarea name="mensaje" maxlength="500" rows="4" style="font:inherit;width:100%" placeholder="Ej.: A las 14:00 se detiene la extrusora 3 por cambio de dado. Guarden su producción en el MES antes de esa hora."></textarea>
+    <div class="help"><span id="cnt">0</span>/500</div>
+    <label class="f" style="margin-top:16px">Vigencia</label>
+    <select name="vigencia">{% for h, l in VIGENCIAS %}<option value="{{ h }}" {{ 'selected' if h == 8 }}>{{ l }}</option>{% endfor %}</select>
+    <div class="help">Si una tablet está apagada, lo recibe al encenderse mientras el aviso esté vigente.</div>
+    <p class="mt mb0"><button class="btn" {{ 'disabled' if not tablets }}>{{ icon('bell') }} Enviar aviso</button></p>
+  </form>
+</div>
+
+{# ---------------- tablets ---------------- #}
+<div class="card">
+  <h2>Tablets</h2>
+  <div class="table-wrap"><table><thead><tr><th>Tablet</th><th>Área</th><th>Estado</th><th>App</th></tr></thead><tbody>
+  {% for t in tablets %}{% set p = bus.presence.get(t.id, {}) %}
+  <tr><td><a href="/devices/{{ t.id }}"><b>{{ t.name }}</b></a></td><td>{{ areas_by_dev.get(t.id) or '—' }}</td>
+    <td>{% if p.get('online') %}<span class="chip ok">● Conectada</span>{% elif p %}<span class="chip off">Desconectada · {{ p.since|hace }}</span>{% else %}<span class="chip off">Sin datos aún</span>{% endif %}</td>
+    <td class="small">{{ p.get('app') or '—' }}</td></tr>
+  {% else %}<tr><td colspan="4" class="empty">{{ icon('tablet') }}<br>Ninguna tablet tiene la app de avisos todavía.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <details class="mt"><summary>Conectar otros sistemas (MES, CMMS, Node-RED, PLC)</summary>
+    <div class="small">
+      <p>Cualquier programa con MQTT puede crear avisos publicando en el tema <code>adipack/enviar</code>:</p>
+      <dl class="kv"><dt>Servidor</dt><dd class="mono">{{ host }}:{{ st.puerto }}</dd>
+        <dt>Usuario</dt><dd class="mono">{{ integ_user }}</dd><dt>Contraseña</dt><dd class="mono">{{ integ_pass }}</dd></dl>
+      <pre>{"titulo": "Falla en extrusora 3",
+ "mensaje": "Esperar indicaciones del supervisor",
+ "prioridad": "urgente",
+ "destino": "area:Extrusión",
+ "vigencia_horas": 4}</pre>
+      <p>Destinos: <code>todas</code>, <code>area:Impresión</code> o <code>tablet:TAB-01</code>. Prioridad: normal, alta o urgente.
+        El aviso queda registrado aquí igual que los enviados desde la consola. Ese usuario sólo puede crear avisos: no puede leer los de las tablets.</p>
+    </div>
+  </details>
+</div>
+</div>
+
+{# ---------------- historial ---------------- #}
+<div class="card">
+  <h2>Avisos enviados</h2>
+  <div class="table-wrap"><table><thead><tr><th>Enviado</th><th>Aviso</th><th>Para</th><th>Prioridad</th><th>Recibido</th><th>Leído</th><th>Estado</th></tr></thead><tbody>
+  {% for n in notices %}{% set c = counts.get(n.id, {'total': 0, 'recibido': 0, 'leido': 0}) %}
+  <tr><td class="nw small">{{ n.created_at|fecha }}<br><span class="muted">{{ n.created_by }}</span></td>
+    <td><a href="/avisos/{{ n.id }}"><b>{{ n.title }}</b></a>{% if n.body %}<div class="small muted">{{ n.body[:90] }}{{ '…' if n.body|length > 90 }}</div>{% endif %}</td>
+    <td class="small">{{ n.target_label }}</td>
+    <td><span class="chip {{ {'normal': 'info', 'alta': 'warn', 'urgente': 'err'}[n.priority] }}">{{ PRIORIDADES[n.priority] }}</span></td>
+    <td class="nw">{{ c.recibido }}/{{ c.total }}</td><td class="nw">{{ c.leido }}/{{ c.total }}</td>
+    <td>{% if n.retired %}<span class="chip off">Retirado</span>{% elif aware(n.expires_at) <= now_utc %}<span class="chip off">Vencido</span>{% elif c.leido == c.total and c.total %}<span class="chip ok">Leído por todas</span>{% else %}<span class="chip info">Vigente</span>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="7" class="empty">{{ icon('bell') }}<br>Todavía no se han enviado avisos.</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+<script>
+(function(){
+  var f = document.getElementById('fa'); if(!f) return;
+  function upd(){ var v = f.querySelector('[name=destino]:checked').value;
+    f.querySelectorAll('[data-d]').forEach(function(e){ e.hidden = e.getAttribute('data-d') !== v; }); }
+  f.querySelectorAll('[name=destino]').forEach(function(r){ r.addEventListener('change', upd); }); upd();
+  var m = f.querySelector('[name=mensaje]'), c = document.getElementById('cnt');
+  m.addEventListener('input', function(){ c.textContent = m.value.length; });
+})();
+</script>
+{% endblock %}

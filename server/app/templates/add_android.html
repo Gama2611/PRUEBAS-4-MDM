@@ -1,0 +1,96 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Agregar tablet Android{% endblock %}
+{% block heading %}Agregar tablet Android{% endblock %}
+{% block sub %}Tres pasos: agente, configuración de las tablets y código QR{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/devices/add">{{ icon('back') }} Volver</a>{% endblock %}
+{% block content %}
+{% set has_agent = agent is not none %}
+{% set has_policy = policies|length > 0 %}
+
+{# ---------- Paso 1 ---------- #}
+<div class="card">
+  <div class="card-h">
+    <div class="step {{ 'done' if has_agent else 'cur' }}" style="padding:0;border:0"><div class="num">{% if has_agent %}{{ icon('check') }}{% else %}1{% endif %}</div></div>
+    <div><h2>Agente MDM en el servidor</h2>
+      <div class="desc">La tablet lo descarga desde esta PC al escanear el QR. Se sube una sola vez.</div></div>
+    <div class="right">{% if has_agent %}<span class="chip ok">Versión {{ agent.version_name }} cargada</span>{% endif %}</div>
+  </div>
+  {% if not has_agent %}
+  <form method="post" action="/apps/upload" enctype="multipart/form-data" class="drop">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="/devices/add/android">
+    <input type="hidden" name="is_agent" value="on">
+    <b>Sube el APK del agente</b> (<code>com.adipack.mdm.agent</code>, el que compilaste en Android Studio o GitHub Actions)
+    <input type="file" name="file" accept=".apk" required>
+    <button class="btn">{{ icon('upload') }} Subir agente</button>
+  </form>
+  {% endif %}
+</div>
+
+{# ---------- Paso 2 ---------- #}
+<div class="card">
+  <div class="card-h">
+    <div class="step {{ 'done' if has_policy else ('cur' if has_agent) }}" style="padding:0;border:0"><div class="num">{% if has_policy %}{{ icon('check') }}{% else %}2{% endif %}</div></div>
+    <div><h2>Configuración de las tablets</h2>
+      <div class="desc">Qué app se muestra en kiosco, el PIN para salir y el Wi-Fi. Se crea una vez y la comparten todas las tablets.</div></div>
+    <div class="right">{% if has_policy %}<a class="btn sec sm" href="/policies/{{ policies[0].id }}">{{ icon('settings') }} Ver opciones avanzadas</a>{% endif %}</div>
+  </div>
+  {% if not has_policy %}
+    {% if not apps %}
+    <div class="alert warn">{{ icon('alert') }}<div>Primero sube el APK de la aplicación que se mostrará en kiosco (por ejemplo <b>CMMS_ADIPACK_APP.apk</b>).</div></div>
+    <form method="post" action="/apps/upload" enctype="multipart/form-data" class="drop">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="/devices/add/android">
+      <b>Sube el APK de la app del kiosco</b>
+      <input type="file" name="file" accept=".apk" required>
+      <button class="btn">{{ icon('upload') }} Subir aplicación</button>
+    </form>
+    {% else %}
+    <form method="post" action="/devices/add/android/policy">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="fields">
+        <div class="field"><label class="f">Nombre de la configuración</label><input name="name" value="Tablets CMMS planta" required maxlength="100"></div>
+        <div class="field"><label class="f">Aplicación del kiosco</label>
+          <select name="app_id" required>{% for a in apps %}<option value="{{ a.id }}">{{ a.label }} — v{{ a.version_name }} ({{ a.package_name }})</option>{% endfor %}</select>
+          <div class="help">Es la única app que verá el operario.</div></div>
+        <div class="field"><label class="f">PIN de salida del kiosco</label><input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,12}" minlength="4" maxlength="12" required autocomplete="new-password" placeholder="De 4 a 12 dígitos">
+          <div class="help">Para salir del kiosco en la propia tablet (tocando 7 veces el logo ADIPACK). Guárdalo en un lugar seguro.</div></div>
+        <div></div>
+        <div class="field"><label class="f">Wi-Fi de planta (nombre / SSID)</label><input name="wifi_ssid" placeholder="Opcional, recomendado">
+          <div class="help">Si lo indicas, la tablet se conecta sola al escanear el QR.</div></div>
+        <div class="field"><label class="f">Clave del Wi-Fi</label><input name="wifi_password" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres (WPA)"></div>
+      </div>
+      <div class="alert info mb0">{{ icon('info') }}<div>Se aplican valores recomendados: kiosco activo, sin pantalla de bloqueo, pantalla encendida mientras carga, bloqueo de restablecimiento de fábrica, modo seguro, capturas y transferencia USB, permisos automáticos y actualizaciones de 2:00 a 5:00 a. m. Puedes ajustarlos luego en <b>Políticas</b>.</div></div>
+      <p class="mt"><button class="btn">{{ icon('check') }} Crear configuración</button></p>
+    </form>
+    {% endif %}
+  {% else %}
+    <div class="muted small">{{ policies|length }} configuración(es) disponible(s): {% for p in policies %}<b>{{ p.name }}</b>{% if not loop.last %}, {% endif %}{% endfor %}.</div>
+  {% endif %}
+</div>
+
+{# ---------- Paso 3 ---------- #}
+<div class="card" {% if not (has_agent and has_policy) %}style="opacity:.6"{% endif %}>
+  <div class="card-h">
+    <div class="step {{ 'cur' if has_agent and has_policy }}" style="padding:0;border:0"><div class="num">3</div></div>
+    <div><h2>Generar el código QR de activación</h2>
+      <div class="desc">El mismo código sirve para varias tablets. Después lo escaneas con cada tablet recién restablecida.</div></div>
+  </div>
+  {% if has_agent and has_policy %}
+  <form method="post" action="/enroll/new">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row row-top">
+      <div class="grow"><label class="f">Configuración</label>
+        <select name="policy_id" required>{% for p in policies %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+      <div><label class="f">Nombre de las tablets</label><input name="name_prefix" value="TAB" maxlength="20" style="width:120px">
+        <div class="help">Quedarán TAB-01, TAB-02…</div></div>
+      <div><label class="f">¿Cuántas tablets?</label><input type="number" name="max_uses" value="7" min="0" max="999" style="width:110px">
+        <div class="help">0 = sin límite</div></div>
+      <div><label class="f">Válido por (días)</label><input type="number" name="days" value="7" min="0" max="365" style="width:110px">
+        <div class="help">0 = no vence</div></div>
+    </div>
+    <p class="mt"><button class="btn lg">{{ icon('qr') }} Generar código QR</button></p>
+  </form>
+  {% else %}
+  <p class="muted mb0">Completa los pasos anteriores para generar el código.</p>
+  {% endif %}
+</div>
+{% endblock %}

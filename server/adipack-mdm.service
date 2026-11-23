@@ -1,0 +1,14 @@
+# /etc/systemd/system/adipack-mdm.service  (Linux)
+[Unit]
+Description=ADIPACK MDM
+After=network-online.target postgresql.service
+
+[Service]
+WorkingDirectory=/opt/adipack-mdm/server
+EnvironmentFile=/opt/adipack-mdm/server/.env
+ExecStart=/opt/adipack-mdm/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+User=mdm
+
+[Install]
+WantedBy=multi-user.target

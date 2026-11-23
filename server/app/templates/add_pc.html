@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Agregar PC{% endblock %}
+{% block heading %}Agregar PC Windows o Linux{% endblock %}
+{% block sub %}Genera un código de activación y ejecuta el instalador en la PC{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/devices/add">{{ icon('back') }} Volver</a>{% endblock %}
+{% block content %}
+<div class="card" style="max-width:860px">
+  <h2>1. Elige la configuración</h2>
+  <p class="desc muted">Define si la PC abre el CMMS/MES en kiosco y si se permiten scripts.
+    <a href="/policies/new?platform=windows">Crear otra política para PC</a>.</p>
+  {% if policies %}
+  <form method="post" action="/enroll/new">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row row-top">
+      <div class="grow"><label class="f">Política</label>
+        <select name="policy_id" required>{% for p in policies %}<option value="{{ p.id }}">{{ p.name }}{% if (p.settings or {}).get('kiosk_enabled') %} · kiosco {{ p.settings.kiosk_url }}{% endif %}</option>{% endfor %}</select></div>
+      <div><label class="f">Nombre de las PCs</label><input name="name_prefix" value="PC" maxlength="20" style="width:120px"></div>
+      <div><label class="f">¿Cuántas PCs?</label><input type="number" name="max_uses" value="0" min="0" style="width:100px"><div class="help">0 = sin límite</div></div>
+      <div><label class="f">Válido por (días)</label><input type="number" name="days" value="30" min="0" style="width:100px"></div>
+    </div>
+    <p class="mt"><button class="btn">{{ icon('arrow') }} Generar código e instrucciones</button></p>
+  </form>
+  {% else %}
+  <a class="btn" href="/policies/new?platform=windows">{{ icon('plus') }} Crear política para PC</a>
+  {% endif %}
+</div>
+{% endblock %}

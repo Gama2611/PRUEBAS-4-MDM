@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Actas de entrega{% endblock %}
+{% block heading %}Actas de entrega{% endblock %}
+{% block sub %}Actas de entrega y asignación de equipo (hoja Acta_Entrega_Individual){% endblock %}
+{% block top_actions %}<a class="btn" href="/actas/nueva">{{ icon('plus') }} Nueva acta</a>{% endblock %}
+{% block content %}
+<div class="table-wrap"><table>
+<thead><tr><th>N.º</th><th>Fecha</th><th>Equipo</th><th>Trabajador</th><th>Cédula</th><th>Área</th><th>Entregado por</th><th></th></tr></thead><tbody>
+{% for a in acts %}
+<tr><td class="nw"><a href="/actas/{{ a.id }}"><b>{{ a.number }}</b></a></td><td>{{ a.date.strftime('%d/%m/%Y') }}</td><td>{{ a.asset_code }}<br><span class="small muted">{{ a.brand_model }}</span></td>
+  <td>{{ a.worker_name }}</td><td class="mono small">{{ a.worker_id_number }}</td><td>{{ a.area }}</td><td class="small">{{ a.delivered_by_name or '—' }}</td>
+  <td class="right" style="white-space:nowrap"><a class="btn sec sm" href="/actas/{{ a.id }}">{{ icon('print') }} Ver / imprimir</a> <a class="btn ghost sm" href="/actas/{{ a.id }}/acta.xlsx" data-keep="1">{{ icon('download') }} Excel</a></td></tr>
+{% else %}<tr><td colspan="8" class="empty">{{ icon('file') }}<br>Aún no hay actas.<br><br><a class="btn" href="/actas/nueva">{{ icon('plus') }} Crear la primera acta</a></td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Aviso #{{ n.id }}{% endblock %}
+{% block heading %}{{ n.title }}{% endblock %}
+{% block sub %}Aviso #{{ n.id }} · {{ n.target_label }} · enviado {{ n.created_at|fecha }} por {{ n.created_by }}{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/avisos">{{ icon('back') }} Avisos</a>{% endblock %}
+{% block content %}
+{% set expired = aware(n.expires_at) <= now_utc %}
+<div class="card">
+  <div class="card-h"><div>
+    <span class="chip {{ {'normal': 'info', 'alta': 'warn', 'urgente': 'err'}[n.priority] }}">{{ PRIORIDADES[n.priority] }}</span>
+    {% if n.retired %}<span class="chip off">Retirado {{ n.retired_at|fecha }}</span>{% elif expired %}<span class="chip off">Vencido</span>{% else %}<span class="chip ok">Vigente hasta {{ n.expires_at|fecha }}</span>{% endif %}
+  </div>
+  {% if not n.retired and not expired %}<div class="right row" style="gap:8px">
+    <form method="post" action="/avisos/{{ n.id }}/reenviar" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sec sm">Reenviar a las pendientes</button></form>
+    <form method="post" action="/avisos/{{ n.id }}/retirar" class="inline" onsubmit="return confirm('¿Retirar este aviso de las pantallas?')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn danger sm">{{ icon('x') }} Retirar aviso</button></form>
+  </div>{% endif %}</div>
+  <p style="white-space:pre-wrap;font-size:16px" class="mb0">{{ n.body or '(sin mensaje, sólo título)' }}</p>
+</div>
+<div class="card">
+  <div class="card-h"><div><h2>Entrega por tablet</h2><div class="desc">Se actualiza al recargar. «Recibido»: llegó a la tablet. «Leído»: alguien tocó «Entendido».</div></div>
+    <a class="btn ghost sm right" href="/avisos/{{ n.id }}">Actualizar</a></div>
+  <div class="table-wrap"><table><thead><tr><th>Tablet</th><th>Conexión</th><th>Estado</th><th>Recibido</th><th>Leído</th><th>Envíos</th></tr></thead><tbody>
+  {% for d in n.deliveries %}
+  <tr><td><b>{{ d.device_name }}</b></td>
+    <td>{% if bus.is_online(d.device_id) %}<span class="chip ok">● Conectada</span>{% else %}<span class="chip off">Desconectada</span>{% endif %}</td>
+    <td>{% if d.read_at %}<span class="chip ok">{{ icon('check') }} Leído</span>{% elif d.received_at %}<span class="chip info">Recibido, sin leer</span>{% elif n.retired or expired %}<span class="chip off">No llegó</span>{% else %}<span class="chip warn">Pendiente</span>{% endif %}</td>
+    <td class="nw">{{ d.received_at|fecha('%d/%m %H:%M:%S') if d.received_at else '—' }}</td>
+    <td class="nw">{{ d.read_at|fecha('%d/%m %H:%M:%S') if d.read_at else '—' }}</td>
+    <td>{{ d.attempts }}</td></tr>
+  {% endfor %}
+  </tbody></table></div>
+</div>
+{% endblock %}

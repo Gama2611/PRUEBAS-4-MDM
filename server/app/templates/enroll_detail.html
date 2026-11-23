@@ -1,0 +1,111 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Código de activación{% endblock %}
+{% block heading %}{{ 'Activar tablets' if et.policy.platform == 'android' else 'Activar PCs' }} · {{ et.policy.name }}{% endblock %}
+{% block sub %}Código #{{ et.id }} · usado {{ et.uses }} de {{ et.max_uses or '∞' }} · vence {{ et.expires_at|fecha('%d/%m/%Y') if et.expires_at else 'nunca' }}{% endblock %}
+{% block top_actions %}{% if et.policy.platform == 'android' and payload %}<button class="btn sec noprint" onclick="window.print()" data-keep="1">{{ icon('print') }} Imprimir QR</button>{% endif %}{% endblock %}
+{% block content %}
+{% if et.revoked %}<div class="alert err">{{ icon('x') }}<div>Este código fue <b>revocado</b> y ya no activa equipos. <a href="/devices/add">Genera uno nuevo</a>.</div></div>
+{% elif expired %}<div class="alert err">{{ icon('x') }}<div>Este código <b>venció</b>. <a href="/devices/add">Genera uno nuevo</a>.</div></div>
+{% elif exhausted %}<div class="alert warn">{{ icon('alert') }}<div>Este código ya se usó las {{ et.max_uses }} veces permitidas. <a href="/devices/add">Genera uno nuevo</a> para más equipos.</div></div>{% endif %}
+
+{% if et.policy.platform == 'android' %}
+  {% if err %}
+  <div class="alert err">{{ icon('x') }}<div><b>Todavía no se puede generar el QR.</b> {{ err }} <a href="/devices/add/android">Ir al asistente</a></div></div>
+  {% else %}
+  <div class="grid g2">
+    <div class="card" style="text-align:center">
+      <div class="qr"><img src="/enroll/{{ et.id }}/qr.png{{ '' if wifi else '?wifi=0' }}" alt="Código QR de activación" style="width:340px;max-width:100%;display:block"></div>
+      <h2 class="mt">ADIPACK MDM · {{ et.policy.name }}</h2>
+      <p class="muted small">Las tablets quedarán como {{ et.name_prefix }}-01, {{ et.name_prefix }}-02…<br>
+        {% if has_wifi and wifi %}Este QR conecta la tablet al Wi-Fi <b>{{ et.policy.settings.wifi_ssid }}</b>.
+        {% elif has_wifi %}QR <b>sin Wi-Fi</b>: elige la red a mano en la tablet.
+        {% else %}La política no trae Wi-Fi: elige la red a mano en la tablet.{% endif %}</p>
+      {% if has_wifi %}<p class="noprint mb0">{% if wifi %}<a class="btn sec sm" href="?wifi=0" data-keep="1">Usar QR sin Wi-Fi</a>
+        {% else %}<a class="btn sec sm" href="?wifi=1" data-keep="1">Volver al QR con Wi-Fi</a>{% endif %}</p>{% endif %}
+    </div>
+    <div class="card noprint">
+      <h2>Cómo activar cada tablet</h2>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div class="t"><b>Restablece la tablet de fábrica</b><span>Ajustes › Sobre la tablet › Restablecer datos de fábrica. Si es nueva, sólo enciéndela.</span></div></div>
+        <div class="step"><div class="num">2</div><div class="t"><b>Toca 6 veces la pantalla de bienvenida</b><span>En la primera pantalla (la del idioma), en un espacio vacío y siempre en el mismo punto. Se abre el lector de QR.</span></div></div>
+        <div class="step"><div class="num">3</div><div class="t"><b>Escanea este código</b><span>Si pide Wi-Fi, elige la MISMA red en la que está esta PC. Acepta las pantallas de «dispositivo administrado». Mira abajo «¿Qué pasó en la activación?».</span></div></div>
+        <div class="step"><div class="num">4</div><div class="t"><b>Espera de 2 a 5 minutos</b><span>Se instala el agente y la app, y la tablet entra sola en kiosco.</span></div></div>
+        <div class="step"><div class="num">5</div><div class="t"><b>Confírmalo en Inicio</b><span>La tablet aparece «En línea». Ponle su ubicación en la ficha.</span></div></div>
+      </div>
+      <div class="alert warn mt" style="margin-bottom:0">{{ icon('alert') }}<div><b>¿Sale «No se puede configurar el dispositivo. Comunícate con el administrador de TI»?</b>
+        Mira el recuadro «¿Qué pasó en la activación?» (más abajo): te dice en qué paso falló y qué hacer.</div></div>
+      <details class="mt"><summary>¿Nada funciona? Plan B por cable USB</summary>
+        <p class="small">Con la tablet restablecida, sin cuentas y con «Depuración USB» e «Instalar vía USB» activos (ver manual, sección 4.3), ejecuta en esta PC:</p>
+        <pre>python tools\provision_adb.py --server {{ public_url }} --token {{ et.token }} --agent agente.apk --app CMMS_ADIPACK_APP.apk --all</pre>
+      </details>
+    </div>
+  </div>
+  {% endif %}
+  <div class="card noprint">
+    <div class="card-h"><div><h2>¿Qué pasó en la activación?</h2>
+      <div class="desc">Se actualiza solo cada 5 segundos. Déjalo abierto mientras escaneas.</div></div></div>
+    <div id="activity">{% include "_activation_events.html" %}</div>
+    <details class="mt"><summary>Cómo leer esta lista</summary>
+      <div class="small">
+      <p><b>No aparece nada después de escanear</b> → la tablet no llega a esta PC. En orden: (1) Firewall: ejecuta <code>ABRIR_FIREWALL.bat</code>;
+        (2) la tablet y la PC deben estar en la misma red (la Wi-Fi de invitados o con «aislamiento de clientes» no sirve);
+        (3) revisa la «Dirección que va dentro del QR»; (4) si el QR trae Wi-Fi, prueba con «Usar QR sin Wi-Fi» y conéctala a mano.</p>
+      <p><b>«La descarga del agente se cortó»</b> → señal débil: acerca la tablet al router e intenta de nuevo.</p>
+      <p><b>«Agente descargado completo» pero la tablet igual falla</b> → la red está bien; el problema es el APK del agente.
+        Sube el APK <b>release firmado</b> más reciente de GitHub Actions (no el «debug») y genera el QR otra vez.</p>
+      <p><b>«Tablet activada»</b> → todo bien. <b>«El MDM rechazó la activación»</b> → el código venció o se agotó: genera uno nuevo.</p>
+      </div>
+    </details>
+  </div>
+  <div class="grid g2 noprint">
+    <div class="card">
+      <h2>Prueba la red con un celular</h2>
+      <p class="muted" style="margin-top:0">Conecta un celular <b>al mismo Wi-Fi que usarán las tablets</b> y escanea este código con su cámara.</p>
+      <div style="display:flex;gap:16px;align-items:center">
+        <img src="/diagnostico/prueba.png" alt="QR de prueba de conexión" style="width:150px;height:150px">
+        <div class="small">Si se abre una página con <b>✅ Conexión correcta</b>, la red y el Firewall están bien.<br><br>
+          Si no abre, el problema es de red: Firewall, red distinta o Wi-Fi de invitados.<br><code>{{ test_url }}</code></div>
+      </div>
+    </div>
+    {% include "_public_url.html" %}
+  </div>
+  <div class="noprint">{% include "_checks.html" %}</div>
+{% else %}
+  <div class="card" style="max-width:900px">
+    <h2>Instalar el agente en la PC</h2>
+    <p class="muted">Copia la carpeta <code>agent-pc</code> a la PC y ejecuta, como Administrador:</p>
+    <h3>Windows (PowerShell)</h3>
+    <pre>powershell -ExecutionPolicy Bypass -File install_windows.ps1 -Server {{ public_url }} -Token {{ et.token }}</pre>
+    <h3>Linux</h3>
+    <pre>python3 agent.py enroll --server {{ public_url }} --token {{ et.token }}
+python3 agent.py run</pre>
+    <p class="help">La PC aparecerá en Inicio como {{ et.name_prefix }}-01, {{ et.name_prefix }}-02…</p>
+  </div>
+{% endif %}
+
+<div class="card noprint">
+  <div class="card-h"><div><h2>Equipos activados con esta configuración</h2></div>
+    <div class="right"><a class="btn sec sm" href="/enroll/{{ et.id }}" data-keep="1">{{ icon('refresh') }} Actualizar</a></div></div>
+  {% if enrolled %}
+  <div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Modelo</th><th>Activado</th><th>Estado</th></tr></thead><tbody>
+  {% for d in enrolled %}<tr><td><a href="/devices/{{ d.id }}"><b>{{ d.name }}</b></a></td><td>{{ d.manufacturer }} {{ d.model }}</td><td>{{ d.enrolled_at|fecha }}</td>
+    <td>{% if online(d) %}<span class="chip ok"><span class="dot"></span>En línea</span>{% else %}<span class="chip off">Desconectado</span>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="muted mb0">Aún ninguno. Cuando una tablet termine la activación aparecerá aquí.</p>{% endif %}
+</div>
+{% if payload %}<details class="noprint"><summary>Contenido técnico del QR</summary><pre>{{ payload }}</pre></details>{% endif %}
+{% if et.policy.platform == 'android' and payload %}
+<script>
+(function(){
+  var box = document.getElementById('activity'); if(!box) return;
+  setInterval(function(){
+    if(document.hidden) return;
+    fetch('/enroll/{{ et.id }}/actividad', {credentials:'same-origin'})
+      .then(function(r){ return r.ok ? r.text() : null; })
+      .then(function(h){ if(h !== null && h !== box.innerHTML) box.innerHTML = h; })
+      .catch(function(){});
+  }, 5000);
+})();
+</script>
+{% endif %}
+{% endblock %}

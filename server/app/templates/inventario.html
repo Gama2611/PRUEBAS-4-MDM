@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Inventario{% endblock %}
+{% block heading %}Inventario de tablets{% endblock %}
+{% block sub %}Inventario maestro (hoja Inventario_Tablets){% endblock %}
+{% block top_actions %}
+<a class="btn sec" href="/inventario/export.xlsx" data-keep="1">{{ icon('download') }} Exportar a Excel</a>
+<a class="btn" href="/inventario/nuevo">{{ icon('plus') }} Agregar equipo</a>
+{% endblock %}
+{% block content %}
+<div class="grid g4">
+  <div class="card kpi"><div class="ic">{{ icon('tablet') }}</div><div><div class="n">{{ stats.total }}</div><div class="l">Equipos registrados</div></div></div>
+  <div class="card kpi"><div class="ic ok">{{ icon('check') }}</div><div><div class="n">{{ stats['Operativo'] }}</div><div class="l">Operativos en planta</div></div></div>
+  <div class="card kpi"><div class="ic warn">{{ icon('settings') }}</div><div><div class="n">{{ stats['En revisión / Mantenimiento'] }}</div><div class="l">En revisión / mantenimiento</div></div></div>
+  <div class="card kpi"><div class="ic" style="background:var(--err-claro);color:var(--err)">{{ icon('alert') }}</div><div><div class="n">{{ stats['Dañado / Fuera de servicio'] }}</div><div class="l">Dañados / fuera de servicio</div></div></div>
+</div>
+{% if unlinked %}
+<div class="alert info">{{ icon('info') }}<div style="flex:1">Hay <b>{{ unlinked }}</b> tablet(s) en el MDM que aún no están en el inventario.</div>
+  <form method="post" action="/inventario/importar-mdm"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">{{ icon('plus') }} Agregarlas al inventario</button></form></div>
+{% endif %}
+<div class="table-wrap">
+<table><thead><tr><th>Código</th><th>Marca / Modelo</th><th>Serial físico</th><th>Serial del software</th><th>Área</th><th>Estatus</th><th>Asignado a / Ahora</th><th>MDM</th><th></th></tr></thead><tbody>
+{% for a in assets %}
+<tr>
+  <td class="nw"><a href="/inventario/{{ a.id }}"><b>{{ a.code }}</b></a></td>
+  <td class="small" style="max-width:170px">{{ a.eff_brand }} {{ a.eff_model }}</td>
+  <td class="mono small nw">{{ a.serial or '—' }}</td>
+  <td class="mono small nw">{{ a.eff_software_serial or '—' }}</td>
+  <td class="nw">{% if a.unassigned %}<span class="chip warn" title="Sin asignar: todavía no tiene área ni personal">S/A · Sin asignar</span>{% else %}{{ a.area }}{% endif %}</td>
+  <td>{% if a.status == 'Operativo' %}<span class="chip ok">Operativo</span>{% elif a.status.startswith('En revisión') %}<span class="chip warn">En revisión</span>{% else %}<span class="chip err">Dañado / Fuera de servicio</span>{% endif %}</td>
+  <td>{% set lg = out.get(a.id) %}{% set ac = holders.get(a.id) %}
+    {% if a.unassigned %}<span class="muted small">Sin personal</span>
+    {% elif ac %}<div class="small"><b>{{ ac.worker_name }}</b> <span class="muted">({{ ac.number }})</span></div>{% endif %}
+    {% if lg %}<span class="chip info" title="Desde {{ lg.date.strftime('%d/%m') }} {{ lg.delivered_at|hora12 }}">En turno con {{ lg.operator_name.split(' ')[0] }}</span>{% elif not a.unassigned and not ac %}<span class="muted small">Disponible</span>{% endif %}</td>
+  <td class="nw">{% if a.device %}<a href="/devices/{{ a.device.id }}">{{ a.device.name }}</a> {% if online(a.device) %}<span class="dot" style="color:var(--ok)"></span>{% endif %}{% else %}<span class="muted small">—</span>{% endif %}</td>
+  <td class="right" style="white-space:nowrap"><a class="btn sec sm" href="/inventario/{{ a.id }}">Editar</a> <a class="btn ghost sm" href="/actas/nueva?asset={{ a.id }}" title="Hacer acta de entrega">{{ icon('file') }}</a></td>
+</tr>
+{% else %}<tr><td colspan="9" class="empty">{{ icon('tablet') }}<br>El inventario está vacío. Agrega equipos, súmalos desde el MDM o importa tu Excel actual.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<div class="card mt">
+  <h2>Importar desde el Excel actual</h2>
+  <p class="desc muted" style="margin-top:0">Sube tu archivo <b>Inventario_Tablets</b> o la <b>Bitácora_Control_Turnos_Tablets.xlsx</b> completa. Los equipos se actualizan por su código (no se duplican); las columnas se reconocen por su título, así que sirve el formato actual y el anterior. Las tablets se enlazan solas con el MDM por el <b>Serial del Software</b>. Los movimientos de Control_Turnos_Tablets se importan sin duplicar.</p>
+  <form method="post" action="/inventario/importar-excel" enctype="multipart/form-data" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grow"><input type="file" name="file" accept=".xlsx" required></div>
+    <button class="btn sec">{{ icon('upload') }} Importar</button>
+  </form>
+</div>
+{% endblock %}

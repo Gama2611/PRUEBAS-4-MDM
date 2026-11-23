@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block public %}
+<div class="login-wrap">
+  <div class="login">
+    <img src="/branding/logo.png" alt="" style="height:44px;margin-bottom:6px" onerror="this.remove()">
+    <h1 style="color:var(--rosa)">ADIPACK MDM</h1>
+    <p class="muted" style="margin:4px 0 22px">Gestión de tablets y PCs de planta</p>
+    {% if flash %}<div class="alert {{ flash.kind }}">{{ flash.msg }}</div>{% endif %}
+    <form method="post" action="/login">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field"><label class="f" for="u">Usuario</label><input id="u" name="username" required autofocus autocomplete="username"></div>
+      <div class="field"><label class="f" for="p">Contraseña</label><input id="p" name="password" type="password" required autocomplete="current-password"></div>
+      <button class="btn lg" style="width:100%">Entrar</button>
+    </form>
+    <p class="help" style="text-align:center;margin-top:18px">Grupo Plásticos ADIPACK · Mejora Continua</p>
+  </div>
+</div>
+{% endblock %}

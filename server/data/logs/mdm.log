@@ -1,0 +1,2 @@
+2026-11-23 08:27:22,246 INFO adipack.mqtt.broker: Broker MQTT escuchando en 0.0.0.0:1883
+2026-11-23 08:27:22,280 INFO adipack.mqtt: Servidor conectado al broker MQTT (puerto 1883)

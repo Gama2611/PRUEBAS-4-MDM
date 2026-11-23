@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Códigos de activación{% endblock %}
+{% block heading %}Códigos de activación{% endblock %}
+{% block sub %}Códigos QR y tokens generados para incorporar equipos{% endblock %}
+{% block top_actions %}<a class="btn" href="/devices/add">{{ icon('plus') }} Nuevo código</a>{% endblock %}
+{% block content %}
+<div class="table-wrap">
+<table><thead><tr><th>#</th><th>Tipo</th><th>Configuración</th><th>Nombres</th><th class="num">Usos</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody>
+{% for t in tokens %}
+{% set vencido = t.expires_at and (t.expires_at|fecha('%Y%m%d%H%M')) < (now|fecha('%Y%m%d%H%M')) %}
+<tr><td>{{ t.id }}</td><td>{{ PLATFORM_NAMES.get(t.policy.platform, t.policy.platform) }}</td><td>{{ t.policy.name }}</td><td>{{ t.name_prefix }}-…</td>
+<td class="num">{{ t.uses }} / {{ t.max_uses or '∞' }}</td><td>{{ t.expires_at|fecha('%d/%m/%Y') if t.expires_at else 'Nunca' }}</td>
+<td>{% if t.revoked %}<span class="chip off">Revocado</span>{% elif vencido %}<span class="chip off">Vencido</span>{% elif t.max_uses and t.uses >= t.max_uses %}<span class="chip warn">Agotado</span>{% else %}<span class="chip ok">Activo</span>{% endif %}</td>
+<td class="right"><a class="btn sec sm" href="/enroll/{{ t.id }}">{{ icon('qr') }} Ver</a>
+{% if not t.revoked %}<form method="post" action="/enroll/{{ t.id }}/revoke" class="inline" data-confirm="¿Revocar este código? Ya no servirá para activar equipos."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost sm">Revocar</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="empty">{{ icon('qr') }}<br>No hay códigos todavía.<br><br><a class="btn" href="/devices/add">{{ icon('plus') }} Agregar dispositivo</a></td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

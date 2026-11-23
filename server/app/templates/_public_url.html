@@ -1,0 +1,19 @@
+{% from "_icons.html" import icon %}
+<div class="card">
+  <h2>Dirección que va dentro del QR</h2>
+  <p class="muted" style="margin-top:0">La tablet descarga el agente desde <b>{{ public_url }}</b>. Debe ser la IP de esta PC
+    en la <b>misma red</b> a la que se conecta la tablet.</p>
+  <form method="post" action="/config/public-url" class="row row-top" style="gap:10px;flex-wrap:wrap">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="next_url" value="{{ path }}">
+    <select name="url" style="min-width:320px">
+      {% if public_url not in ips|map(attribute='url')|list %}<option value="{{ public_url }}" selected>{{ public_url }} (actual)</option>{% endif %}
+      {% for i in ips %}
+      <option value="{{ i.url }}" {% if i.url == public_url %}selected{% endif %}>{{ i.ip }}{% if i.name %} · {{ i.name }}{% endif %}{% if i.virtual %} (virtual, no usar){% endif %}</option>
+      {% endfor %}
+      <option value="auto">Automática (la detecta al iniciar)</option>
+    </select>
+    <button class="btn sec">{{ icon('check') }} Usar esta dirección</button>
+  </form>
+  <p class="help mb0">Si cambias la dirección, el QR cambia: vuelve a escanear el nuevo. Recomendado: pide a TI una IP fija para esta PC.</p>
+</div>

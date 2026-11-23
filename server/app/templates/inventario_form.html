@@ -1,0 +1,70 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}{{ a.code if a else 'Agregar equipo' }}<script>
+document.querySelectorAll('[data-acc]').forEach(function(b){ b.addEventListener('click', function(){
+  var i = document.getElementById('acc'), v = i.value.trim(), x = b.getAttribute('data-acc');
+  if ((' + ' + v.toUpperCase() + ' + ').indexOf(' + ' + x + ' + ') >= 0) return;
+  i.value = v ? v + ' + ' + x : x; i.focus();
+});});
+</script>
+{% endblock %}
+{% block heading %}{{ 'Equipo ' ~ a.code if a else 'Agregar equipo al inventario' }}<script>
+document.querySelectorAll('[data-acc]').forEach(function(b){ b.addEventListener('click', function(){
+  var i = document.getElementById('acc'), v = i.value.trim(), x = b.getAttribute('data-acc');
+  if ((' + ' + v.toUpperCase() + ' + ').indexOf(' + ' + x + ' + ') >= 0) return;
+  i.value = v ? v + ' + ' + x : x; i.focus();
+});});
+</script>
+{% endblock %}
+{% block sub %}Hoja Inventario_Tablets<script>
+document.querySelectorAll('[data-acc]').forEach(function(b){ b.addEventListener('click', function(){
+  var i = document.getElementById('acc'), v = i.value.trim(), x = b.getAttribute('data-acc');
+  if ((' + ' + v.toUpperCase() + ' + ').indexOf(' + ' + x + ' + ') >= 0) return;
+  i.value = v ? v + ' + ' + x : x; i.focus();
+});});
+</script>
+{% endblock %}
+{% block top_actions %}<a class="btn ghost" href="/inventario">{{ icon('back') }} Inventario</a><script>
+document.querySelectorAll('[data-acc]').forEach(function(b){ b.addEventListener('click', function(){
+  var i = document.getElementById('acc'), v = i.value.trim(), x = b.getAttribute('data-acc');
+  if ((' + ' + v.toUpperCase() + ' + ').indexOf(' + ' + x + ' + ') >= 0) return;
+  i.value = v ? v + ' + ' + x : x; i.focus();
+});});
+</script>
+{% endblock %}
+{% block content %}
+<form method="post" action="/inventario/save">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ a.id if a else '' }}">
+<div class="card">
+  <div class="fields">
+    <div class="field"><label class="f">Código activo {{ comp.company_short }}</label><input name="code" value="{{ a.code if a else suggested }}" required maxlength="40" style="text-transform:uppercase"><div class="help">Ej.: {{ suggested }}</div></div>
+    <div class="field"><label class="f">Equipo en el MDM (opcional)</label>
+      <select name="device_id"><option value="">— No enlazado —</option>{% for d in devices %}<option value="{{ d.id }}" {{ 'selected' if a and a.device_id == d.id }}>{{ d.name }} · {{ d.manufacturer }} {{ d.model }}{% if d.serial %} · {{ d.serial }}{% endif %}</option>{% endfor %}</select>
+      <div class="help">Si lo enlazas, marca, modelo y serial del software se toman del MDM cuando los dejes vacíos.</div></div>
+    <div class="field"><label class="f">Marca</label><input name="brand" value="{{ a.brand if a else '' }}" maxlength="64" placeholder="{{ a.device.manufacturer if a and a.device else 'Xiaomi' }}"></div>
+    <div class="field"><label class="f">Modelo</label><input name="model" value="{{ a.model if a else '' }}" maxlength="64" placeholder="{{ a.device.model if a and a.device else 'Redmi Pad 2' }}"></div>
+    <div class="field"><label class="f">Serial físico</label><input name="serial" value="{{ a.serial if a else '' }}" maxlength="64" placeholder="Ej.: 65520/W6S600937"><div class="help">El de la etiqueta de la caja o de la tablet.</div></div>
+    <div class="field"><label class="f">Serial del software</label><input name="software_serial" value="{{ a.software_serial if a else '' }}" maxlength="64" placeholder="{{ a.device.serial if a and a.device and a.device.serial else 'Ej.: dmirl78d8h75pvg6' }}"><div class="help">El que reporta Android (Ajustes › Sobre la tablet › Estado). Si lo dejas vacío y está enlazada, se usa el del MDM.</div></div>
+    <div class="field"><label class="f">Área asignada</label><select name="area">{% for x in AREAS_INV %}<option value="{{ x }}" {{ 'selected' if (a and (a.area or AREA_SA) == x) or (not a and x == AREA_SA) }}>{{ area_label(x) }}</option>{% endfor %}</select>
+      <div class="help"><b>S/A = sin asignar:</b> todavía no tiene área ni personal. No se puede entregar en la bitácora; al hacer su acta de entrega toma el área del acta.</div></div>
+    <div class="field"><label class="f">Software de control</label><input name="software" value="{{ a.software if a else 'ADIPACK MDM + Adipack CMMS' }}" maxlength="120"></div>
+    <div class="field"><label class="f">Estatus actual</label><select name="status">{% for x in ESTATUS_INV %}<option {{ 'selected' if (a and a.status == x) or (not a and loop.first) }}>{{ x }}</option>{% endfor %}</select></div>
+    <div class="field wide"><label class="f">Accesorios incluidos</label>
+      <input name="accessories" id="acc" value="{{ a.accessories if a else '' }}" maxlength="255" placeholder="Ej.: FORRO + VIDRIO TEMPLADO + CARGADOR Y CABLE">
+      <div class="row mt" style="gap:6px">{% for x in ['FORRO', 'VIDRIO TEMPLADO', 'CARGADOR Y CABLE', 'CARGADOR', 'CABLE USB'] %}<button type="button" class="btn ghost sm" data-acc="{{ x }}">+ {{ x }}</button>{% endfor %}</div></div>
+    <div class="field wide"><label class="f">Observaciones técnicas</label><textarea name="notes" style="font-family:inherit;font-size:14px;min-height:80px">{{ a.notes if a else '' }}</textarea></div>
+  </div>
+  <button class="btn">{{ icon('check') }} Guardar equipo</button>
+</div>
+</form>
+{% if a %}
+<form method="post" action="/inventario/{{ a.id }}/delete" data-confirm="¿Eliminar {{ a.code }} del inventario? Su historial en la bitácora se conserva.">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost" style="color:var(--err)">{{ icon('trash') }} Eliminar del inventario</button></form>
+{% endif %}
+<script>
+document.querySelectorAll('[data-acc]').forEach(function(b){ b.addEventListener('click', function(){
+  var i = document.getElementById('acc'), v = i.value.trim(), x = b.getAttribute('data-acc');
+  if ((' + ' + v.toUpperCase() + ' + ').indexOf(' + ' + x + ' + ') >= 0) return;
+  i.value = v ? v + ' + ' + x : x; i.focus();
+});});
+</script>
+{% endblock %}

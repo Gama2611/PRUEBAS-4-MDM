@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Políticas{% endblock %}
+{% block heading %}Políticas{% endblock %}
+{% block sub %}Reglas que se aplican a los equipos. Al guardar un cambio, los equipos lo aplican solos.{% endblock %}
+{% block top_actions %}
+<a class="btn" href="/policies/new?platform=android">{{ icon('tablet') }} Nueva para tablets</a>
+<a class="btn sec" href="/policies/new?platform=windows">{{ icon('pc') }} Nueva para PCs</a>
+{% endblock %}
+{% block content %}
+<div class="table-wrap"><table>
+<thead><tr><th>Nombre</th><th>Tipo</th><th>Kiosco</th><th class="num">Versión</th><th class="num">Equipos</th><th>Modificada</th><th></th></tr></thead><tbody>
+{% for p in policies %}{% set s = p.settings or {} %}
+<tr>
+  <td><a href="/policies/{{ p.id }}"><b>{{ p.name }}</b></a>{% if p.description %}<br><span class="small muted">{{ p.description }}</span>{% endif %}</td>
+  <td>{{ icon('tablet' if p.platform == 'android' else 'pc') }} {{ PLATFORM_NAMES.get(p.platform, p.platform) }}</td>
+  <td>{% if s.kiosk_enabled %}<span class="chip info">{{ icon('lock') }} {{ s.kiosk_package or s.kiosk_url }}</span>{% else %}<span class="chip off">No</span>{% endif %}</td>
+  <td class="num">v{{ p.version }}</td><td class="num">{{ p.devices|length }}</td>
+  <td>{{ p.updated_at|fecha }}</td>
+  <td class="right"><a class="btn sec sm" href="/policies/{{ p.id }}">{{ icon('settings') }} Editar</a></td>
+</tr>
+{% else %}<tr><td colspan="7" class="empty">{{ icon('shield') }}<br>No hay políticas.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

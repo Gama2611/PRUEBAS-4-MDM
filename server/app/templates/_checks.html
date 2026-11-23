@@ -1,0 +1,11 @@
+{% from "_icons.html" import icon %}
+<div class="card">
+  <h2>Lista de verificación</h2>
+  <p class="desc muted" style="margin-top:0">✅ correcto · ⚠️ recomendación (funciona igual) · ❌ hay que corregirlo antes de escanear</p>
+  {% for c in checks %}
+  <div class="step" style="padding:10px 0">
+    <div style="font-size:18px;width:28px;text-align:center">{% if c.ok %}✅{% elif c.ok is none %}⚠️{% else %}❌{% endif %}</div>
+    <div class="t"><b>{{ c.title }}</b><span>{{ c.help }}</span></div>
+  </div>
+  {% endfor %}
+</div>

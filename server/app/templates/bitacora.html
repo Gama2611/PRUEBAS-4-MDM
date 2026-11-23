@@ -1,0 +1,102 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Bitácora de turnos{% endblock %}
+{% block heading %}Bitácora de turnos{% endblock %}
+{% block sub %}Entrega y devolución de tablets por turno (hoja Control_Turnos_Tablets){% endblock %}
+{% block top_actions %}
+<a class="btn ghost" href="/formatos/bitacora-en-blanco.xlsx" data-keep="1" title="El formato vacío, para imprimir y llenar a mano">{{ icon('file') }} Formato en blanco</a>
+<a class="btn sec" href="/bitacora/export.xlsx?desde={{ d1 }}&hasta={{ d2 }}&area={{ area|urlencode }}&turno={{ turno|urlencode }}&estado={{ estado|urlencode }}&q={{ q|urlencode }}" data-keep="1">{{ icon('download') }} Exportar a Excel</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{{ icon('arrow') }} Registrar entrega</h2>
+  {% if not assets %}
+  <div class="alert warn mt mb0">{{ icon('alert') }}<div>No hay equipos operativos en el inventario. <a href="/inventario">Agrega equipos al inventario</a> primero.</div></div>
+  {% else %}
+  <form method="post" action="/bitacora/entregar" class="mt">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row row-top">
+      <div><label class="f">Fecha</label><input type="date" name="date" value="{{ today }}" required style="width:155px"></div>
+      <div class="grow"><label class="f">Equipo</label>
+        <select name="asset_id" id="asset" required><option value="">Elige…</option>
+        {% for a in assets %}<option value="{{ a.id }}" data-area="{{ a.area }}" {{ 'disabled' if a.id in out_ids or a.unassigned }}>{{ a.code }}{% if a.eff_serial %} · {{ a.eff_serial }}{% endif %}{{ ' (entregado)' if a.id in out_ids }}{{ ' (S/A: sin asignar)' if a.unassigned }}</option>{% endfor %}</select></div>
+      <div><label class="f">Área operativa</label><select name="area" id="area" required>{% for x in AREAS %}<option>{{ x }}</option>{% endfor %}</select></div>
+      <div><label class="f">Turno</label><select name="shift" required>{% for t in TURNOS %}<option {{ 'selected' if t == shift_now }}>{{ t }}</option>{% endfor %}</select></div>
+      <div><label class="f">Hora entrega</label><input type="time" name="delivered_at" value="{{ now_hhmm }}" required style="width:125px"></div>
+    </div>
+    <div class="row row-top mt">
+      <div class="grow"><label class="f">Operador</label>
+        <select name="worker_id" id="worker" onchange="document.getElementById('nuevo').style.display=this.value?'none':'flex'">
+          <option value="">— Persona nueva (escribir abajo) —</option>
+          {% for w in workers %}<option value="{{ w.id }}">{{ w.full_name }} · {{ w.id_number }}{% if w.area %} · {{ w.area }}{% endif %}</option>{% endfor %}</select></div>
+      <div class="grow"><label class="f">Observaciones / novedades</label><input name="notes" maxlength="500" placeholder="Opcional"></div>
+    </div>
+    <div class="row row-top mt" id="nuevo">
+      <div class="grow"><label class="f">Nombre del operador</label><input name="operator_name" maxlength="120" placeholder="Nombre y apellido"></div>
+      <div><label class="f">Cédula</label><input name="operator_id_number" maxlength="20" placeholder="V-12345678" style="width:170px"></div>
+      <div class="help" style="align-self:center">Se guarda también en Personal para la próxima vez.</div>
+    </div>
+    <p class="mt mb0"><button class="btn">{{ icon('check') }} Registrar entrega</button></p>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-h"><div><h2>Equipos entregados ahora ({{ open_logs|length }})</h2><div class="desc">Registra la devolución al final del turno.</div></div></div>
+  {% if open_logs %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Equipo</th><th>Operador</th><th>Área / Turno</th><th>Entregado</th><th>Devolución</th></tr></thead><tbody>
+    {% for lg in open_logs %}
+    <tr><td><b>{{ lg.asset_code }}</b><br><span class="small muted mono">{{ lg.serial }}</span></td>
+      <td>{{ lg.operator_name }}<br><span class="small muted">{{ lg.operator_id_number }}</span></td>
+      <td>{{ lg.area }}<br><span class="small muted">{{ lg.shift }}</span></td>
+      <td style="white-space:nowrap">{{ lg.date.strftime('%d/%m/%Y') }}<br><span class="small muted">{{ lg.delivered_at|hora12 }}</span></td>
+      <td><form method="post" action="/bitacora/{{ lg.id }}/devolver" class="row" style="gap:6px">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="time" name="returned_at" value="{{ now_hhmm }}" required style="width:110px">
+        <select name="return_status" required style="width:160px"><option value="">Estado…</option>{% for e in ESTADOS_DEV %}<option>{{ e }}</option>{% endfor %}</select>
+        <input name="notes" placeholder="Novedad (opcional)" maxlength="300" style="width:170px">
+        <button class="btn sm">Devolver</button></form></td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  {% else %}<p class="muted mb0">No hay equipos pendientes de devolución.</p>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-h"><div><h2>Registro de movimientos</h2><div class="desc">Del {{ d1.strftime('%d/%m/%Y') }} al {{ d2.strftime('%d/%m/%Y') }}. Lo que ves aquí es lo que se exporta a Excel.</div></div></div>
+  <form method="get" class="row row-top" style="margin-bottom:14px">
+    <div><label class="f">Desde</label><input type="date" name="desde" value="{{ d1 }}"></div>
+    <div><label class="f">Hasta</label><input type="date" name="hasta" value="{{ d2 }}"></div>
+    <div><label class="f">Área</label><select name="area"><option value="">Todas</option>{% for x in AREAS %}<option {{ 'selected' if area == x }}>{{ x }}</option>{% endfor %}</select></div>
+    <div><label class="f">Turno</label><select name="turno"><option value="">Todos</option>{% for t in TURNOS %}<option {{ 'selected' if turno == t }}>{{ t }}</option>{% endfor %}</select></div>
+    <div><label class="f">Estado</label><select name="estado"><option value="">Todos</option><option value="pendiente" {{ 'selected' if estado == 'pendiente' }}>Sin devolver</option>{% for e in ESTADOS_DEV %}<option {{ 'selected' if estado == e }}>{{ e }}</option>{% endfor %}</select></div>
+    <div class="grow"><label class="f">Buscar</label><input name="q" value="{{ q }}" placeholder="Código, operador o cédula"></div>
+    <div style="align-self:flex-end"><button class="btn sec" data-keep="1">{{ icon('search') }} Filtrar</button></div>
+  </form>
+  <div class="grid" style="grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:14px">
+    {% for lab, val, cls in [('Entregas', stats.total, ''), ('Extrusión', stats['Extrusión'], ''), ('Impresión', stats['Impresión'], ''), ('Sellado', stats['Sellado'], ''), ('Óptimo', stats.optimo, 'ok'), ('Detalle leve', stats.leve, 'warn'), ('Dañadas / extraviadas', stats.alertas, 'err')] %}
+    <div class="card flat" style="padding:10px 12px;margin:0"><div class="small muted">{{ lab }}</div><div style="font-size:20px;font-weight:700" class="{{ 'chip ' ~ cls if cls }}">{{ val }}</div></div>
+    {% endfor %}
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Fecha</th><th>Código</th><th>Serial</th><th>Área</th><th>Turno</th><th>Operador</th><th>Cédula</th><th>Entrega</th><th>Devolución</th><th>Estado</th><th>Observaciones</th><th></th></tr></thead><tbody>
+    {% for lg in logs %}
+    <tr><td class="nw">{{ lg.date.strftime('%d/%m/%Y') }}</td><td class="nw"><b>{{ lg.asset_code }}</b></td><td class="mono small nw">{{ lg.serial or '—' }}</td>
+      <td>{{ lg.area }}</td><td class="small nw">{{ lg.shift }}</td><td>{{ lg.operator_name }}</td><td class="mono small nw">{{ lg.operator_id_number }}</td>
+      <td style="white-space:nowrap">{{ lg.delivered_at|hora12 }}</td><td style="white-space:nowrap">{{ lg.returned_at|hora12 if lg.returned_at else '—' }}</td>
+      <td>{% if not lg.return_status %}<span class="chip info">Entregado</span>{% elif lg.return_status == 'Óptimo' %}<span class="chip ok">Óptimo</span>{% elif lg.return_status == 'Con detalle leve' %}<span class="chip warn">Con detalle leve</span>{% else %}<span class="chip err">{{ lg.return_status }}</span>{% endif %}</td>
+      <td class="small">{{ lg.notes }}</td>
+      <td><form method="post" action="/bitacora/{{ lg.id }}/anular" class="inline" data-confirm="¿Anular el movimiento de {{ lg.asset_code }} ({{ lg.operator_name }}, {{ lg.date.strftime('%d/%m') }})?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost sm" title="Anular">{{ icon('trash') }}</button></form></td></tr>
+    {% else %}<tr><td colspan="12" class="empty">{{ icon('clipboard') }}<br>No hay movimientos en este período.</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% if logs|length >= 1000 %}<p class="help">Se muestran los 1000 más recientes; la exportación a Excel incluye todos los del filtro.</p>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var s = document.getElementById('asset'), a = document.getElementById('area'), w = document.getElementById('worker');
+  if (s && a) s.addEventListener('change', function(){ var v = s.selectedOptions[0].dataset.area; if (v && [...a.options].some(o => o.value === v)) a.value = v; });
+  if (w) document.getElementById('nuevo').style.display = w.value ? 'none' : 'flex';
+})();
+</script>
+{% endblock %}

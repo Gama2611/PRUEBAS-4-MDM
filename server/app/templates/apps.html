@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% from "_icons.html" import icon %}
+{% block title %}Aplicaciones{% endblock %}
+{% block heading %}Aplicaciones{% endblock %}
+{% block sub %}APKs disponibles para instalar en las tablets{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-h"><div><h2>Subir un APK</h2>
+    <div class="desc">El agente MDM (<code>com.adipack.mdm.agent</code>) se reconoce solo. El paquete y la versión se leen del propio archivo. Máximo {{ max_mb }} MB.</div></div></div>
+  <form method="post" action="/apps/upload" enctype="multipart/form-data" class="drop" id="drop">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {{ icon('upload') }} <b>Arrastra aquí el archivo .apk o selecciónalo</b>
+    <input type="file" name="file" accept=".apk,application/vnd.android.package-archive" required id="file">
+    <div id="fname" class="small muted"></div>
+    <button class="btn mt">{{ icon('upload') }} Subir APK</button>
+  </form>
+</div>
+
+<div class="table-wrap">
+<table><thead><tr><th>Aplicación</th><th>Paquete</th><th>Versión</th><th class="num">Tamaño</th><th>Uso</th><th>Subida</th><th></th></tr></thead><tbody>
+{% for a in apps %}
+<tr>
+  <td>{% if a.is_agent %}<span class="chip rosa">{{ icon('shield') }} Agente MDM</span>{% else %}<b>{{ a.label }}</b>{% endif %}</td>
+  <td><span class="mono">{{ a.package_name }}</span></td>
+  <td>{{ a.version_name }} <span class="muted small">(código {{ a.version_code }})</span></td>
+  <td class="num">{{ a.size|mb }}</td>
+  <td>{% if a.is_agent %}<span class="small muted">Se descarga al escanear el QR</span>{% elif used.get(a.id) %}<span class="chip ok">{{ used[a.id]|join(', ') }}</span>{% else %}<span class="chip off">Sin usar</span>{% endif %}</td>
+  <td title="SHA-256 {{ a.sha256 }}">{{ a.uploaded_at|fecha }}</td>
+  <td class="right"><form method="post" action="/apps/{{ a.id }}/delete" class="inline" data-confirm="¿Eliminar {{ a.label }} versión {{ a.version_name }}?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost sm" title="Eliminar">{{ icon('trash') }}</button></form></td>
+</tr>
+{% else %}<tr><td colspan="7" class="empty">{{ icon('box') }}<br>Aún no hay APKs. Sube primero el agente MDM y luego tu app CMMS / MES.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}
+{% block scripts %}
+<script>
+var d = document.getElementById('drop'), f = document.getElementById('file'), n = document.getElementById('fname');
+function show(){ if (f.files.length) n.textContent = f.files[0].name + ' · ' + (f.files[0].size/1048576).toFixed(1) + ' MB'; }
+f.addEventListener('change', show);
+['dragenter','dragover'].forEach(function(e){ d.addEventListener(e, function(ev){ ev.preventDefault(); d.classList.add('over'); }); });
+['dragleave','drop'].forEach(function(e){ d.addEventListener(e, function(ev){ ev.preventDefault(); d.classList.remove('over'); }); });
+d.addEventListener('drop', function(ev){ if (ev.dataTransfer.files.length) { f.files = ev.dataTransfer.files; show(); } });
+</script>
+{% endblock %}

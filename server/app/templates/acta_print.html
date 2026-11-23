@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acta {{ act.number }} · {{ act.asset_code }} · {{ act.worker_name }}</title>
+<link rel="icon" href="/static/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/favicon.png"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<style>
+  /* Réplica del formato Acta_Entrega_Individual (colores y estructura del Excel original) */
+  @page { size: Letter portrait; margin: 14mm 14mm 14mm 14mm; }
+  :root { --navy:#1B365D; --navy2:#2B547E; --head:#E8EFF7; --lab:#F7F9FC; --line:#9DAFC6; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#eef1f5; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; color:#000; font-size:10pt; }
+  .bar { position:sticky; top:0; background:#fff; border-bottom:1px solid #ddd; padding:10px 18px; display:flex; gap:10px; align-items:center; z-index:2; }
+  .bar b { margin-right:auto; color:var(--navy); }
+  .bar a, .bar button { font: 600 13px "Segoe UI", Arial, sans-serif; border-radius:8px; padding:8px 14px; border:1px solid #d81b72; background:#d81b72; color:#fff; text-decoration:none; cursor:pointer; }
+  .bar .sec { background:#fff; color:#333; border-color:#ccc; }
+  .sheet { width: 216mm; min-height: 279mm; margin: 18px auto; background:#fff; padding: 12mm 13mm; box-shadow: 0 2px 16px rgba(0,0,0,.12); }
+  .head { display:grid; grid-template-columns: 46mm 1fr; background:var(--head); border-bottom:2px solid var(--navy); min-height:23mm; }
+  .head .logo { display:flex; align-items:center; justify-content:center; padding:2mm; background:#fff; }
+  .head .logo img { max-width:42mm; max-height:19mm; }
+  .head .t { padding:2.5mm 4mm; }
+  .head .t1 { font-size:14pt; font-weight:700; color:var(--navy); }
+  .head .t2 { font-size:11pt; font-weight:700; color:var(--navy2); margin-top:1mm; }
+  .head .t3 { font-size:10pt; font-weight:700; color:#404040; margin-top:1mm; }
+  .num { text-align:right; font-size:9pt; color:#555; margin:2mm 0 1mm; }
+  .intro { text-align:justify; line-height:1.35; margin:3mm 0 4mm; }
+  .band { background:var(--navy); color:#fff; font-weight:700; font-size:11pt; padding:1.6mm 2.5mm; margin-top:4mm; }
+  table.f { width:100%; border-collapse:collapse; }
+  table.f td { border:1px solid var(--line); padding:1.6mm 2mm; height:8mm; vertical-align:middle; }
+  table.f td.l { background:var(--lab); font-weight:700; width:24%; white-space:nowrap; }
+  .chk { white-space:nowrap; margin-right:2.2mm; }
+  .box { display:inline-block; width:3.6mm; height:3.6mm; border:1px solid #000; vertical-align:-0.6mm; margin-right:1.2mm; text-align:center; line-height:3.3mm; font-size:8pt; font-weight:700; }
+  ol.cl { margin:2mm 0 0; padding:0; list-style:none; }
+  ol.cl li { text-align:justify; font-size:9pt; line-height:1.3; margin-bottom:1.8mm; }
+  .closing { font-weight:700; font-size:9pt; margin:4mm 0 2mm; }
+  table.s { width:100%; border-collapse:collapse; }
+  table.s th { background:var(--navy2); color:#fff; font-size:10pt; padding:1.6mm; border:1px solid var(--line); }
+  table.s td { border:1px solid var(--line); padding:2.4mm 2.5mm; height:9.5mm; }
+  table.s td.fp { width:28mm; text-align:center; vertical-align:bottom; color:#7f7f7f; font-size:8pt; }
+  .val { font-weight:600; }
+  .foot { margin-top:4mm; font-size:8pt; color:#777; display:flex; justify-content:space-between; }
+  @media print { body { background:#fff; } .bar { display:none; } .sheet { margin:0; box-shadow:none; width:auto; min-height:0; padding:0; } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>Acta {{ act.number }}{% if flash %} <span style="color:#14804a;font-weight:600;margin-left:10px">✓ {{ flash.msg }}</span>{% endif %}</b>
+  <a class="sec" href="/actas">← Actas</a>
+  <a class="sec" href="/actas/{{ act.id }}/acta.xlsx">Descargar Excel</a>
+  <button onclick="window.print()">Imprimir</button>
+</div>
+<div class="sheet">
+  <div class="head">
+    <div class="logo">{% if has_logo %}<img src="/branding/logo.png" alt="Logo">{% endif %}</div>
+    <div class="t"><div class="t1">{{ t.header }}</div><div class="t2">{{ t.title }}</div><div class="t3">{{ t.subtitle }}</div></div>
+  </div>
+  <div class="num">Acta N.º <b>{{ act.number }}</b></div>
+  <div class="intro">{{ t.intro }}</div>
+
+  <div class="band">1. DATOS DEL TRABAJADOR RESPONSABLE</div>
+  <table class="f">
+    <tr><td class="l">Nombre y Apellido:</td><td class="val" style="width:28%">{{ act.worker_name }}</td><td class="l">Cédula de Identidad:</td><td class="val">{{ act.worker_id_number }}</td></tr>
+    <tr><td class="l">Cargo:</td><td class="val">{{ act.worker_position }}</td><td class="l">Turno de Trabajo:</td><td class="val">{{ act.worker_shift }}</td></tr>
+    <tr><td class="l">Área Asignada:</td><td style="font-size:9.5pt;white-space:nowrap">{% for x in acta_area_options(act.area) %}<span class="chk"><span class="box">{{ 'X' if x == act.area }}</span>{{ x }}</span>{% endfor %}</td>
+        <td class="l">Fecha de Entrega:</td><td class="val">{{ act.date.strftime('%d / %m / %Y') }}</td></tr>
+  </table>
+
+  <div class="band">2. DESCRIPCIÓN DEL EQUIPO ENTREGADO</div>
+  <table class="f">
+    <tr><td class="l">{{ t.code_label }}</td><td class="val" style="width:28%">{{ act.asset_code }}</td><td class="l">Tipo de Equipo:</td><td>Tablet / Dispositivo de Control</td></tr>
+    <tr><td class="l">Marca y Modelo:</td><td class="val">{{ act.brand_model }}</td><td class="l">Serial (S/N) / IMEI:</td><td class="val">{{ act.serial }}</td></tr>
+    <tr><td class="l">Software Instalado:</td><td class="val">{{ act.software }}</td><td class="l">Condición Física:</td>
+        <td>{% for c in CONDICIONES %}<span class="chk"><span class="box">{{ 'X' if c == act.condition }}</span>{{ c }}</span>{% endfor %}</td></tr>
+    <tr><td class="l">Accesorios Incluidos:</td><td colspan="3">{% for x in ACCESORIOS %}<span class="chk"><span class="box">{{ 'X' if x in act.accessories }}</span>{{ x }}</span>{% endfor %}</td></tr>
+    <tr><td class="l">Observaciones:</td><td colspan="3" class="val">{{ act.notes }}</td></tr>
+  </table>
+
+  <div class="band">3. CONDICIONES DE USO, CUSTODIA Y RESPONSABILIDAD</div>
+  <ol class="cl">{% for c in t.clauses %}{% set parts = c.split(':', 1) %}<li>{% if parts|length == 2 %}<b>{{ parts[0] }}:</b>{{ parts[1] }}{% else %}{{ c }}{% endif %}</li>{% endfor %}</ol>
+
+  <div class="closing">{{ t.closing }}</div>
+  <table class="s">
+    <tr><th colspan="2">{{ t.delivered_title }}</th><th colspan="2">RECIBIDO CONFORME (TRABAJADOR)</th></tr>
+    <tr><td colspan="2">Firma:</td><td>Firma:</td><td class="fp" rowspan="4">HUELLA DACTILAR<br>(Pulgar Derecho)</td></tr>
+    <tr><td colspan="2">Nombre: <span class="val">{{ act.delivered_by_name }}</span></td><td>Nombre: <span class="val">{{ act.worker_name }}</span></td></tr>
+    <tr><td colspan="2">C.I.: <span class="val">{{ act.delivered_by_id_number }}</span></td><td>C.I.: <span class="val">{{ act.worker_id_number }}</span></td></tr>
+    <tr><td colspan="2">Cargo: <span class="val">{{ act.delivered_by_position }}</span></td><td>Cargo: <span class="val">{{ act.worker_position }}</span></td></tr>
+  </table>
+  <div class="foot"><span>Acta {{ act.number }} · generada por ADIPACK MDM</span><span>Ejemplar: ☐ Empresa ☐ Trabajador</span></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,69 @@
+{% from "_icons.html" import icon %}<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}ADIPACK MDM{% endblock %} · ADIPACK MDM</title>
+<link rel="icon" href="/static/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/favicon.png"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+{% if user %}
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img src="/branding/logo.png" alt="ADIPACK" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'mark',textContent:'A'}))">
+      <div><b>ADIPACK MDM</b><small>Gestión de dispositivos</small></div>
+    </div>
+    <nav class="nav">
+      <a class="cta" href="/devices/add">{{ icon('plus') }} Agregar dispositivo</a>
+      <a href="/" class="{{ 'on' if path == '/' or (path.startswith('/devices/') and not path.startswith('/devices/add')) }}">{{ icon('home') }} Inicio y equipos</a>
+      <div class="grp">Configuración</div>
+      <a href="/policies" class="{{ 'on' if path.startswith('/policies') }}">{{ icon('shield') }} Políticas</a>
+      <a href="/apps" class="{{ 'on' if path.startswith('/apps') }}">{{ icon('box') }} Aplicaciones</a>
+      <a href="/enroll" class="{{ 'on' if path.startswith('/enroll') }}">{{ icon('qr') }} Códigos de activación</a>
+      <a href="/avisos" class="{{ 'on' if path.startswith('/avisos') }}">{{ icon('bell') }} Avisos a tablets</a>
+      <div class="grp">Control de equipos</div>
+      <a href="/bitacora" class="{{ 'on' if path.startswith('/bitacora') }}">{{ icon('clipboard') }} Bitácora de turnos</a>
+      <a href="/inventario" class="{{ 'on' if path.startswith('/inventario') }}">{{ icon('tablet') }} Inventario</a>
+      <a href="/actas" class="{{ 'on' if path.startswith('/actas') }}">{{ icon('file') }} Actas de entrega</a>
+      <a href="/personal" class="{{ 'on' if path.startswith('/personal') }}">{{ icon('users') }} Personal</a>
+      <div class="grp">Administración</div>
+      <a href="/empresa" class="{{ 'on' if path.startswith('/empresa') }}">{{ icon('building') }} Empresa y logo</a>
+      <a href="/audit" class="{{ 'on' if path.startswith('/audit') }}">{{ icon('list') }} Auditoría</a>
+      <a href="/account" class="{{ 'on' if path.startswith('/account') }}">{{ icon('user') }} Mi cuenta</a>
+    </nav>
+    <div class="foot">Dirección para las tablets:<br><code>{{ public_url }}</code></div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div><h1>{% block heading %}{% endblock %}</h1><div class="sub">{% block sub %}{% endblock %}</div></div>
+      <div class="right">
+        {% block top_actions %}{% endblock %}
+        <span class="user"><span class="avatar">{{ user[:1]|upper }}</span>{{ user }}</span>
+        <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn sec sm" title="Cerrar sesión">{{ icon('logout') }} Salir</button></form>
+      </div>
+    </header>
+    <main class="content">
+      {% if flash %}<div class="alert {{ flash.kind }}" role="status">{{ icon('check' if flash.kind == 'ok' else 'alert') }}<div>{{ flash.msg }}</div></div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+{% block public %}{% endblock %}
+{% endif %}
+<script>
+// Evita doble envío y muestra "Procesando…" en botones de formularios
+document.addEventListener('submit', function (e) {
+  var b = e.target.querySelector('button[type=submit],button:not([type])');
+  if (b && !b.dataset.keep) { setTimeout(function(){ b.disabled = true; b.dataset.t = b.innerHTML; b.innerHTML = 'Procesando…'; }, 0); }
+});
+// Confirmación para formularios marcados
+document.querySelectorAll('form[data-confirm]').forEach(function (f) {
+  f.addEventListener('submit', function (e) { if (!confirm(f.dataset.confirm)) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
